@@ -47,7 +47,7 @@ rebuild:
 
 test:
 	@echo "$(BLUE)Запуск тестов...$(NC)"
-	@./quick-test.sh
+	@./test/quick-test.sh
 
 clean:
 	@echo "$(BLUE)Очистка...$(NC)"
@@ -112,7 +112,7 @@ endif
 # Быстрая установка
 install:
 	@echo "$(BLUE)Настройка проекта...$(NC)"
-	@chmod +x ramalama.sh quick-test.sh entrypoint.sh examples.sh monitor.sh backup.sh setup-dirs.sh
+	@chmod +x ramalama.sh test/quick-test.sh entrypoint.sh examples.sh monitor.sh backup.sh setup-dirs.sh
 	@./setup-dirs.sh
 	@echo "$(GREEN)✓ Проект настроен$(NC)"
 	@make build
