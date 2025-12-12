@@ -1,0 +1,35 @@
+# Директории с моделями и данными
+models/
+data/
+
+# Docker
+.docker/
+
+# Логи
+*.log
+/tmp/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Временные файлы
+*.tmp
+*.temp
