@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Создание рабочих директорий
-RUN mkdir -p /workspace/models /workspace/data
+RUN mkdir -p /workspace/models /workspace/data /workspace/cache
 
 WORKDIR /workspace
 
