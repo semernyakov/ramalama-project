@@ -6,64 +6,78 @@ services:
     image: ramalama:latest
     container_name: ramalama
     
-    # Используем host network для доступа к прокси на 127.0.0.1
-    network_mode: host
+    # Use bridge network with proper port mapping for better security
+    ports:
+      - "8080:8080"
+    networks:
+      - ramalama-network
     
     env_file:
       - config/.env
     
     environment:
-      # Прокси настройки (из .env)
+      # Proxy settings (from .env)
       - HTTP_PROXY=${HTTP_PROXY:-}
       - HTTPS_PROXY=${HTTPS_PROXY:-}
       - NO_PROXY=localhost,127.0.0.0/8,::1
       
-      # КРИТИЧНО: Указываем RamaLama где хранить модели
+      # CRITICAL: Specify where RamaLama should store models
       - RAMALAMA_STORE=/var/lib/ramalama
       - RAMALAMA_IN_CONTAINER=1
       - RAMALAMA_LOG_LEVEL=ERROR
       
-      # Пути для логов
+      # Log paths
       - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
       
-      # Настройки Hugging Face
+      # Hugging Face settings
       - HF_HUB_DISABLE_PROGRESS_BARS=false
       - HF_HUB_ENABLE_HF_TRANSFER=1
-      
-      # Указываем движок для RamaLama
-      
-      # Указываем образ для запуска моделей
     
     volumes:
-      # КРИТИЧНО: Монтируем /var/lib/ramalama для сохранения моделей!
+      # CRITICAL: Mount /var/lib/ramalama for model persistence!
       - ./models:/var/lib/ramalama:rw
       
-      # Логи в отдельную директорию
+      # Logs in separate directory
       - ./logs:/workspace/logs:rw
       
-      # Пользовательские данные
+      # User data
       - ./data:/workspace/data:rw
       
-      # Кэш для ускорения работы
+      # Cache for performance
       - ./cache:/workspace/cache:rw
       
-      # Конфиги в отдельную директорию
+      # Configs in separate directory
       - ./config:/workspace/config:ro
     
-    # По умолчанию контейнер в режиме ожидания
+    # Default container in waiting mode
     command: tail -f /dev/null
     
     stdin_open: true
     tty: true
     restart: unless-stopped
+    
+    # Resource limits for operational excellence
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
 
-  # Альтернативный сервис без прокси
+  # Alternative service without proxy
   ramalama-no-proxy:
     build: .
     image: ramalama:latest
     container_name: ramalama-no-proxy
     profiles: ["no-proxy"]
     
+    ports:
+      - "8080:8080"
+    networks:
+      - ramalama-network
+    
     environment:
       - RAMALAMA_STORE=/var/lib/ramalama
       - RAMALAMA_IN_CONTAINER=1
@@ -82,3 +96,18 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
+    
+    # Resource limits for operational excellence
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+# Network configuration
+networks:
+  ramalama-network:
+    driver: bridge

@@ -567,3 +567,14 @@ env | grep -i proxy >> support-info.txt
 ---
 
 **Последнее обновление:** 2024
+
+---
+
+## 🌐 Translations / Переводы
+
+| Язык | Документация | Статус перевода |
+|------|--------------|-----------------|
+| 🇺🇸 English | [TROUBLESHOOTING.en.md](TROUBLESHOOTING.en.md) | ✅ Translation |
+| 🇷🇺 Russian | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | ✅ Оригинал |
+| 🇺🇸 English | [README.md](README.md) | ✅ Translation |
+| 🇷🇺 Russian | [README.ru.md](README.ru.md) | ✅ Оригинал |

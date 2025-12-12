@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 echo "🚀 RamaLama Docker Environment"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -26,7 +26,7 @@ echo "📦 Models store: $RAMALAMA_STORE"
 
 # Создаем необходимые директории
 mkdir -p "$RAMALAMA_STORE" /workspace/logs /workspace/data
-chmod 777 "$RAMALAMA_STORE" /workspace/logs /workspace/data 2>/dev/null || true
+chmod 755 "$RAMALAMA_STORE" /workspace/logs /workspace/data 2>/dev/null || true
 
 echo "📁 Logs: /workspace/logs/"
 echo "📁 Data: /workspace/data/"

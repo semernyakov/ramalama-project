@@ -281,3 +281,13 @@ sudo systemctl status cron && sudo crontab -l | grep ramalama
 - Сжиматься для экономии места  
 - Храниться в течение 30 дней
 - Удаляться при превышении лимита
+---
+
+## 🌐 Translations / Переводы
+
+| Язык | Документация | Статус перевода |
+|------|--------------|-----------------|
+| 🇺🇸 English | [LOGROTATION_GUIDE.en.md](LOGROTATION_GUIDE.en.md) | ✅ Translation |
+| 🇷🇺 Russian | [LOGROTATION_GUIDE.md](LOGROTATION_GUIDE.md) | ✅ Оригинал |
+| 🇺🇸 English | [README.md](../README.md) | ✅ Translation |
+| 🇷🇺 Russian | [README.ru.md](../logs/README.ru.md) | ✅ Оригинал |

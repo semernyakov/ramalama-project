@@ -218,8 +218,8 @@ ramalama-project/
 | Document | Description |
 |----------|-------------|
 | **[README.md](README.md)** | This comprehensive guide |
-| **[LOGROTATION_GUIDE.md](docs/LOGROTATION_GUIDE.md)** | Complete log rotation setup and management |
-| **[TROUBLESHOOTING.md](test/TROUBLESHOOTING.md)** | Detailed problem-solving guide |
+| **[LOGROTATION_GUIDE.md](LOGROTATION_GUIDE.md)** | Complete log rotation setup and management |
+| **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | Detailed problem-solving guide |
 | **[test/README.md](test/README.md)** | Testing infrastructure and procedures |
 
 ### Built-in Help
@@ -420,7 +420,7 @@ python3 main.py status
    ```
 
 2. **Detailed Troubleshooting:**
-   - Read [TROUBLESHOOTING.md](test/TROUBLESHOOTING.md)
+   - Read [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
    - Check log files in `logs/` directory
    - Run diagnostic scripts
 
@@ -541,12 +541,12 @@ When reporting issues, please include:
 | Language | Documentation | Translation Status |
 |----------|---------------|-------------------|
 | 🇺🇸 English | [README.md](README.md) | ✅ Original |
-| 🇷🇺 Russian | [README.ru.md](logs/README.ru.md) | ✅ Complete |
-| 🇺🇸 English | [Log Rotation Guide](docs/LOGROTATION_GUIDE.en.md) | ✅ Complete |
-| 🇷🇺 Russian | [Руководство по ротации логов](docs/LOGROTATION_GUIDE.md) | ✅ Original |
-| 🇺🇸 English | [Troubleshooting Guide](docs/TROUBLESHOOTING.en.md) | ✅ Complete |
-| 🇷🇺 Russian | [Руководство по устранению неполадок](test/TROUBLESHOOTING.md) | ✅ Original |
-| 🇺🇸 English | [Code Audit Report](docs/RAMA_LAMA_CODE_AUDIT_REPORT.md) | ✅ Original |
-| 🇷🇺 Russian | [Отчет аудита кода](docs/RAMA_LAMA_CODE_AUDIT_REPORT.ru.md) | ✅ Complete |
-| 🇺🇸 English | [Testing Documentation](test/README.md) | ✅ Original |
-| 🇷🇺 Russian | [Документация по тестированию](test/README.ru.md) | ✅ Complete |
+| 🇷🇺 Russian | [README.ru.md](README.ru.md) | ✅ Complete |
+| 🇺🇸 English | [Log Rotation Guide](LOGROTATION_GUIDE.en.md) | ✅ Complete |
+| 🇷🇺 Russian | [Руководство по ротации логов](LOGROTATION_GUIDE.md) | ✅ Original |
+| 🇺🇸 English | [Troubleshooting Guide](TROUBLESHOOTING.en.md) | ✅ Complete |
+| 🇷🇺 Russian | [Руководство по устранению неполадок](TROUBLESHOOTING.md) | ✅ Original |
+| 🇺🇸 English | [Code Audit Report](RAMA_LAMA_CODE_AUDIT_REPORT.md) | ✅ Original |
+| 🇷🇺 Russian | [Отчет аудита кода](RAMA_LAMA_CODE_AUDIT_REPORT.ru.md) | ✅ Complete |
+| 🇺🇸 English | [Testing Documentation](README_testing.md) | ✅ Complete |
+| 🇷🇺 Russian | [Документация по тестированию](README_testing.ru.md) | ✅ Complete |
