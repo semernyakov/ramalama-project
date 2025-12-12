@@ -154,18 +154,18 @@ check_proxy() {
 create_env_file() {
     print_header "Создание конфигурационного файла"
     
-    if [ -f ".env" ]; then
-        print_warning ".env файл уже существует"
+    if [ -f "config/.env" ]; then
+        print_warning "config/.env файл уже существует"
         read -p "Перезаписать? (y/N): " overwrite
         if [[ ! "$overwrite" =~ ^[Yy]$ ]]; then
-            print_info "Пропускаем создание .env"
+            print_info "Пропускаем создание config/.env"
             return
         fi
     fi
     
-    print_step "Создание .env файла..."
+    print_step "Создание config/.env файла..."
     
-    cat > .env << EOF
+    cat > config/.env << EOF
 # RamaLama Environment Configuration
 # Сгенерировано: $(date)
 
@@ -188,14 +188,14 @@ DEFAULT_MODEL=llama3.2:1b
 DEFAULT_SERVE_PORT=8080
 EOF
     
-    print_success ".env файл создан"
+    print_success "config/.env файл создан"
 }
 
 # Создание структуры директорий
 create_directories() {
     print_header "Создание структуры директорий"
     
-    local dirs=("models" "data" "backups" "data/logs")
+    local dirs=("models" "logs" "data" "backups" "config")
     
     for dir in "${dirs[@]}"; do
         if [ ! -d "$dir" ]; then
@@ -205,6 +205,12 @@ create_directories() {
             print_info "Существует: $dir/"
         fi
     done
+    
+    # Создаем дополнительные поддиректории
+    print_step "Создание поддиректорий..."
+    mkdir -p logs/.archived 2>/dev/null || true
+    mkdir -p data/cache 2>/dev/null || true
+    print_success "Поддиректории созданы"
 }
 
 # Установка прав доступа
@@ -223,7 +229,7 @@ set_permissions() {
     done
     
     # Права на директории
-    chmod -R 755 models/ data/ 2>/dev/null || true
+    chmod -R 755 models/ logs/ data/ config/ backups/ 2>/dev/null || true
     print_success "Права на директории установлены"
 }
 
@@ -271,6 +277,7 @@ show_next_steps() {
     echo -e "${YELLOW}1.${NC} Проверьте работу:"
     echo "   ./ramalama.sh version"
     echo "   ./ramalama.sh info"
+    echo "   ./setup-dirs.sh             - Проверка директорий"
     echo ""
     echo -e "${YELLOW}2.${NC} Скачайте модель (например, маленькую для теста):"
     echo "   ./ramalama.sh pull tinyllama"
@@ -286,9 +293,11 @@ show_next_steps() {
     echo -e "${CYAN}Полезные команды:${NC}"
     echo "   ./ramalama.sh help          - Справка"
     echo "   ./ramalama.sh list          - Список моделей"
+    echo "   ./setup-dirs.sh             - Проверка структуры директорий"
     echo "   ./examples.sh               - Примеры использования"
     echo "   ./monitor.sh                - Мониторинг системы"
     echo "   ./backup.sh create          - Создать бэкап"
+    echo "   ./log-manager.sh            - Управление логами"
     echo "   make help                   - Команды Make"
     echo ""
     echo -e "${CYAN}Документация:${NC}"
