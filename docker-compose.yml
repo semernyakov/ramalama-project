@@ -21,6 +21,7 @@ services:
       # КРИТИЧНО: Указываем RamaLama где хранить модели
       - RAMALAMA_STORE=/var/lib/ramalama
       - RAMALAMA_IN_CONTAINER=1
+      - RAMALAMA_LOG_LEVEL=ERROR
       
       # Пути для логов
       - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
@@ -30,10 +31,8 @@ services:
       - HF_HUB_ENABLE_HF_TRANSFER=1
       
       # Указываем движок для RamaLama
-      - RAMALAMA_ENGINE=docker
       
       # Указываем образ для запуска моделей
-      - RAMALAMA_IMAGE=ramalama:latest
     
     volumes:
       # КРИТИЧНО: Монтируем /var/lib/ramalama для сохранения моделей!
@@ -42,11 +41,11 @@ services:
       # Логи в отдельную директорию
       - ./logs:/workspace/logs:rw
       
-      # Конфиги в отдельную директорию
-      - ./config:/workspace/config:ro
-      
       # Пользовательские данные
       - ./data:/workspace/data:rw
+      
+      # Конфиги в отдельную директорию
+      - ./config:/workspace/config:ro
     
     # По умолчанию контейнер в режиме ожидания
     command: tail -f /dev/null
@@ -65,13 +64,14 @@ services:
     environment:
       - RAMALAMA_STORE=/var/lib/ramalama
       - RAMALAMA_IN_CONTAINER=1
+      - RAMALAMA_LOG_LEVEL=ERROR
       - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
     
     volumes:
       - ./models:/var/lib/ramalama:rw
       - ./logs:/workspace/logs:rw
-      - ./config:/workspace/config:ro
       - ./data:/workspace/data:rw
+      - ./config:/workspace/config:ro
     
     command: tail -f /dev/null
     

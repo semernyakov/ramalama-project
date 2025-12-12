@@ -73,7 +73,7 @@ run_ramalama() {
     
     if [ "$should_log" = true ] && [ -f "./log-manager.sh" ]; then
         # Запускаем с логированием
-        docker-compose run --rm ramalama "$@" 2>&1 | tee -a ./data/logs/ramalama.log
+        docker-compose run --rm ramalama "$@" 2>&1 | tee -a ./logs/ramalama.log
     else
         # Обычный запуск без логирования
         docker-compose run --rm ramalama "$@"

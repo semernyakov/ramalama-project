@@ -6,54 +6,31 @@
 set -e
 
 # Определяем логическую директорию (работает и внутри, и снаружи контейнера)
-if [ -d "/workspace/data/logs" ]; then
+if [ -d "/workspace/logs" ]; then
     # Внутри контейнера
-    LOG_DIR="/workspace/data/logs"
-else
+    LOG_DIR="/workspace/logs"
+elif [ -d "./logs" ]; then
     # Снаружи контейнера
-    LOG_DIR="./data/logs"
+    LOG_DIR="./logs"
+else
+    LOG_DIR="./logs"
 fi
 
 LOG_FILE="$LOG_DIR/ramalama.log"
-if [ -d "/workspace/config" ]; then
-    LOGROTATE_CONFIG="/workspace/config/logrotate.conf"
-else
-    LOGROTATE_CONFIG="./config/logrotate.conf"
-fi
 
-# Функция для инициализации логирования
-init_logging() {
-    mkdir -p "$LOG_DIR"
-    
-    # Настройка logrotate для автоматической ротации логов
-    cat > "$LOGROTATE_CONFIG" << EOF
-${LOG_FILE} {
-    daily
-    rotate 30
-    compress
-    missingok
-    notifempty
-    sharedscripts
-    postrotate
-        # Перезапуск процесса логирования при ротации
-        echo "\$(date): Log rotation completed" >> ${LOG_FILE}
-    endscript
-}
-EOF
-    
-    echo "$(date): Logging system initialized" >> "$LOG_FILE"
-}
-
-# Функция для запуска RamaLama с сохранением логов
+# Функция для запуска RamaLama с сохранением логов сессий
 run_with_logging() {
     local command="$*"
     
     # Создаем timestamped log files для каждой сессии
     local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local session_log="$LOG_DIR/ramalama_session_${timestamp}.log"
+    local session_log="$LOG_DIR/sessions/ramalama_session_${timestamp}.log"
     
     echo "$(date): Starting RamaLama session" >> "$LOG_FILE"
     echo "$(date): Command: $command" >> "$LOG_FILE"
+    
+    # Создаем директорию sessions если не существует
+    mkdir -p "$LOG_DIR/sessions"
     
     # Запускаем команду и перенаправляем логи в файл
     if [ -t 0 ]; then
@@ -71,6 +48,13 @@ run_with_logging() {
     return $exit_code
 }
 
+# Функция для инициализации логирования
+init_logging() {
+    mkdir -p "$LOG_DIR"
+    echo "$(date): Logging system initialized" >> "$LOG_FILE"
+    echo "✓ Логирование инициализировано: $LOG_FILE"
+}
+
 # Функция для просмотра логов
 show_logs() {
     local tail_lines="${1:-100}"
@@ -83,23 +67,8 @@ show_logs() {
         echo "Размер файла: $(du -h "$LOG_FILE" | cut -f1)"
     else
         echo "Файл логов не найден: $LOG_FILE"
-        echo "Инициализируйте логирование командой: init_logging"
+        echo "Инициализируйте логирование командой: ./log-manager.sh init"
     fi
-}
-
-# Функция для очистки старых логов
-clean_logs() {
-    echo "Очистка старых логов..."
-    
-    # Оставляем последние 7 дней логов
-    find "$LOG_DIR" -name "ramalama_*.log" -mtime +7 -delete 2>/dev/null || true
-    
-    # Показываем статистику
-    local log_count=$(find "$LOG_DIR" -name "ramalama_*.log" | wc -l)
-    local total_size=$(du -sh "$LOG_DIR" | cut -f1)
-    
-    echo "Файлов логов: $log_count"
-    echo "Общий размер: $total_size"
 }
 
 # Функция для мониторинга логов в реальном времени
@@ -112,12 +81,60 @@ tail_logs() {
     fi
 }
 
+# Функция для очистки старых логов
+clean_logs() {
+    echo "Очистка старых логов..."
+    
+    # Оставляем последние 7 дней основного файла логов
+    find "$LOG_DIR" -name "ramalama.log" -mtime +7 -delete 2>/dev/null || true
+    
+    # Очищаем старые сессии (старше 30 дней)
+    mkdir -p "$LOG_DIR/sessions"
+    find "$LOG_DIR/sessions" -name "ramalama_session_*.log" -mtime +30 -delete 2>/dev/null || true
+    
+    # Показываем статистику
+    local main_log_count=$(find "$LOG_DIR" -name "ramalama.log" | wc -l)
+    local session_count=$(find "$LOG_DIR/sessions" -name "ramalama_session_*.log" | wc -l)
+    local total_size=$(du -sh "$LOG_DIR" | cut -f1)
+    
+    echo "Основных логов: $main_log_count"
+    echo "Сессий: $session_count"
+    echo "Общий размер: $total_size"
+}
+
+# Функция для показа сессий
+show_sessions() {
+    if [ -d "$LOG_DIR/sessions" ]; then
+        echo "=== Логи сессий в $LOG_DIR/sessions/ ==="
+        find "$LOG_DIR/sessions" -name "ramalama_session_*.log" -type f -exec ls -la {} \; 2>/dev/null || echo "Файлы сессий не найдены"
+        echo ""
+        echo "Всего сессий: $(find "$LOG_DIR/sessions" -name "ramalama_session_*.log" | wc -l)"
+        echo "Размер: $(du -sh "$LOG_DIR/sessions" | cut -f1)"
+    else
+        echo "Директория сессий не найдена: $LOG_DIR/sessions"
+        echo "Запустите сессию командой: ./log-manager.sh run <команда>"
+    fi
+}
+
+# Функция для проверки статуса логирования
+status_logs() {
+    if [ -f "$LOG_FILE" ]; then
+        echo "✓ Логи активны: $LOG_FILE"
+        echo "  Размер: $(du -h "$LOG_FILE" | cut -f1)"
+        echo "  Изменен: $(stat -c "%y" "$LOG_FILE" 2>/dev/null || echo "неизвестно")"
+        echo "  Строк: $(wc -l < "$LOG_FILE")"
+    else
+        echo "✗ Логи не инициализированы"
+        echo "  Путь: $LOG_FILE"
+        echo "  Создайте командой: ./log-manager.sh init"
+    fi
+}
+
 # Основная логика
 main() {
     case "${1:-help}" in
         init)
             init_logging
-            echo "Логирование инициализировано"
             ;;
         run)
             shift
@@ -134,41 +151,44 @@ main() {
         clean)
             clean_logs
             ;;
+        sessions)
+            show_sessions
+            ;;
         tail|follow)
             tail_logs
             ;;
         status)
-            if [ -f "$LOG_FILE" ]; then
-                echo "Логи активны: $LOG_FILE"
-                echo "Размер: $(du -h "$LOG_FILE" | cut -f1)"
-                echo "Изменен: $(stat -c "%y" "$LOG_FILE")"
-            else
-                echo "Логи не инициализированы"
-            fi
+            status_logs
             ;;
         help|--help|-h)
-            cat << EOF
+            cat << 'HELP'
 RamaLama Log Manager - Управление логами
 
 Использование:
-  $0 init                    Инициализировать систему логирования
-  $0 run <команда>           Запустить команду с сохранением логов
-  $0 show [N]                Показать последние N строк логов (по умолчанию 100)
-  $0 clean                   Очистить старые логи
-  $0 tail                    Мониторинг логов в реальном времени
-  $0 status                  Показать статус логирования
-  $0 help                    Показать эту справку
+  ./log-manager.sh init              Инициализировать систему логирования
+  ./log-manager.sh run <команда>     Запустить команду с сохранением сессии
+  ./log-manager.sh show [N]          Показать последние N строк логов (по умолчанию 100)
+  ./log-manager.sh sessions          Показать логи всех сессий
+  ./log-manager.sh clean             Очистить старые логи и сессии
+  ./log-manager.sh tail              Мониторинг логов в реальном времени
+  ./log-manager.sh status            Показать статус логирования
+  ./log-manager.sh help              Показать эту справку
 
 Примеры:
-  $0 run pull tinyllama      Скачать модель с сохранением логов
-  $0 run serve tinyllama     Запустить сервер с логированием
-  $0 show 50                 Показать последние 50 строк
-  $0 tail                    Следить за логами в реальном времени
+  ./log-manager.sh init              Инициализировать логирование
+  ./log-manager.sh run pull tinyllama Скачать модель с сохранением сессии
+  ./log-manager.sh show 50           Показать последние 50 строк
+  ./log-manager.sh sessions          Показать все сессии
+  ./log-manager.sh tail              Следить за логами в реальном времени
 
 Файлы логов:
-  Основной: $LOG_FILE
-  Сессий:   $LOG_DIR/ramalama_session_*.log
-EOF
+  Основной: ./logs/ramalama.log
+  Сессии:   ./logs/sessions/ramalama_session_*.log
+
+Директории:
+  Логи: ./logs/
+  Сессии: ./logs/sessions/
+HELP
             ;;
         *)
             echo "Неизвестная команда: $1"
