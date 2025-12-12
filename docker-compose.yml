@@ -44,6 +44,9 @@ services:
       # Пользовательские данные
       - ./data:/workspace/data:rw
       
+      # Кэш для ускорения работы
+      - ./cache:/workspace/cache:rw
+      
       # Конфиги в отдельную директорию
       - ./config:/workspace/config:ro
     
@@ -71,6 +74,7 @@ services:
       - ./models:/var/lib/ramalama:rw
       - ./logs:/workspace/logs:rw
       - ./data:/workspace/data:rw
+      - ./cache:/workspace/cache:rw
       - ./config:/workspace/config:ro
     
     command: tail -f /dev/null

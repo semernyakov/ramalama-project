@@ -1,6 +1,7 @@
 # Директории с моделями и данными
 models/
 data/
+cache/
 
 # Docker
 .docker/

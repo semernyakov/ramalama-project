@@ -195,7 +195,7 @@ EOF
 create_directories() {
     print_header "Создание структуры директорий"
     
-    local dirs=("models" "logs" "data" "backups" "config")
+    local dirs=("models" "logs" "data" "backups" "config" "cache")
     
     for dir in "${dirs[@]}"; do
         if [ ! -d "$dir" ]; then
@@ -209,7 +209,7 @@ create_directories() {
     # Создаем дополнительные поддиректории
     print_step "Создание поддиректорий..."
     mkdir -p logs/.archived 2>/dev/null || true
-    mkdir -p data/cache 2>/dev/null || true
+    mkdir -p cache 2>/dev/null || true
     print_success "Поддиректории созданы"
 }
 
@@ -229,7 +229,7 @@ set_permissions() {
     done
     
     # Права на директории
-    chmod -R 755 models/ logs/ data/ config/ backups/ 2>/dev/null || true
+    chmod -R 755 models/ logs/ data/ config/ backups/ cache/ 2>/dev/null || true
     print_success "Права на директории установлены"
 }
 
