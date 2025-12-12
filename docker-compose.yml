@@ -7,15 +7,20 @@ services:
     container_name: ramalama
     env_file: .env
     
-    # Используем host network для доступа к прокси на 127.0.0.1
+    # Используем host network для доступа к прокси
     network_mode: host
     
     environment:
       # Настройки ramalama (загружаются из .env файла)
       - RAMALAMA_IN_CONTAINER=1
       
+      # Дополнительные настройки для лучшего логирования
+      - RAMALAMA_LOG_LEVEL=INFO
+      - HF_HUB_DISABLE_PROGRESS_BARS=false
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    
     volumes:
-      # Создаем и монтируем директории для моделей и данных
+      # Монтируем директории
       - ./models:/workspace/models
       - ./data:/workspace/data
     
@@ -24,6 +29,7 @@ services:
     
     stdin_open: true
     tty: true
+    restart: unless-stopped
 
   # Альтернативный сервис без host network (если прокси не нужен)
   ramalama-no-proxy:
@@ -40,6 +46,11 @@ services:
       - RAMALAMA_MODELS_PATH=/workspace/models
       - RAMALAMA_IN_CONTAINER=1
       
+      # Дополнительные настройки для лучшего логирования
+      - RAMALAMA_LOG_LEVEL=INFO
+      - HF_HUB_DISABLE_PROGRESS_BARS=false
+      - HF_HUB_ENABLE_HF_TRANSFER=1
+    
     volumes:
       - ./models:/workspace/models
       - ./data:/workspace/data
@@ -48,3 +59,30 @@ services:
     
     stdin_open: true
     tty: true
+    restart: unless-stopped
+
+  # Сервис для проверки монтирования (опционально)
+  check-mounts:
+    image: alpine:latest
+    container_name: check-mounts
+    profiles: ["check"]
+    volumes:
+      - ./models:/workspace/models
+      - ./data:/workspace/data
+    command: >
+      sh -c "
+        echo '=== ПРОВЕРКА МОНТИРОВАНИЯ ==='
+        echo 'Текущая директория:'
+        pwd
+        echo ''
+        echo 'Содержимое /workspace/models:'
+        ls -la /workspace/models/
+        echo ''
+        echo 'Содержимое /workspace/data:'
+        ls -la /workspace/data/
+        echo ''
+        echo 'Права на директории:'
+        stat /workspace/models
+        stat /workspace/data
+        echo '=== КОНЕЦ ПРОВЕРКИ ==='
+      "
