@@ -25,6 +25,7 @@ services:
       - RAMALAMA_STORE=/var/lib/ramalama
       - RAMALAMA_IN_CONTAINER=1
       - RAMALAMA_LOG_LEVEL=ERROR
+      - RAMALAMA_ENGINE=llama.cpp
       
       # Log paths
       - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
@@ -82,6 +83,7 @@ services:
       - RAMALAMA_STORE=/var/lib/ramalama
       - RAMALAMA_IN_CONTAINER=1
       - RAMALAMA_LOG_LEVEL=ERROR
+      - RAMALAMA_ENGINE=llama.cpp
       - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
     
     volumes:
