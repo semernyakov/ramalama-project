@@ -56,16 +56,6 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
-    
-    # Resource limits for operational excellence
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-          cpus: '2.0'
-        reservations:
-          memory: 1G
-          cpus: '0.5'
 
   # Alternative service without proxy
   ramalama-no-proxy:
@@ -98,16 +88,6 @@ services:
     stdin_open: true
     tty: true
     restart: unless-stopped
-    
-    # Resource limits for operational excellence
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-          cpus: '2.0'
-        reservations:
-          memory: 1G
-          cpus: '0.5'
 
 # Network configuration
 networks:
