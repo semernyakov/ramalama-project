@@ -5,17 +5,29 @@
 
 set -e
 
-LOG_DIR="/workspace/data/logs"
+# Определяем логическую директорию (работает и внутри, и снаружи контейнера)
+if [ -d "/workspace/data/logs" ]; then
+    # Внутри контейнера
+    LOG_DIR="/workspace/data/logs"
+else
+    # Снаружи контейнера
+    LOG_DIR="./data/logs"
+fi
+
 LOG_FILE="$LOG_DIR/ramalama.log"
-LOGROTATE_CONFIG="/workspace/data/logs/logrotate.conf"
+if [ -d "/workspace/config" ]; then
+    LOGROTATE_CONFIG="/workspace/config/logrotate.conf"
+else
+    LOGROTATE_CONFIG="./config/logrotate.conf"
+fi
 
 # Функция для инициализации логирования
 init_logging() {
     mkdir -p "$LOG_DIR"
     
     # Настройка logrotate для автоматической ротации логов
-    cat > "$LOGROTATE_CONFIG" << 'EOF'
-/workspace/data/logs/ramalama.log {
+    cat > "$LOGROTATE_CONFIG" << EOF
+${LOG_FILE} {
     daily
     rotate 30
     compress
@@ -24,7 +36,7 @@ init_logging() {
     sharedscripts
     postrotate
         # Перезапуск процесса логирования при ротации
-        echo "$(date): Log rotation completed" >> /workspace/data/logs/ramalama.log
+        echo "\$(date): Log rotation completed" >> ${LOG_FILE}
     endscript
 }
 EOF

@@ -8,6 +8,7 @@ data/
 # Логи
 *.log
 /tmp/
+/logs/
 
 # Python
 __pycache__/

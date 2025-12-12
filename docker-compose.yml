@@ -1,94 +1,80 @@
+version: '3.8'
+
 services:
   ramalama:
     build: .
     image: ramalama:latest
     container_name: ramalama
-    env_file: .env
-    profiles: ["main"]
     
-    # Используем host network для доступа к прокси
+    # Используем host network для доступа к прокси на 127.0.0.1
     network_mode: host
     
+    env_file:
+      - config/.env
+    
     environment:
-      # Настройки ramalama (загружаются из .env файла)
+      # Прокси настройки (из .env)
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=localhost,127.0.0.0/8,::1
+      
+      # КРИТИЧНО: Указываем RamaLama где хранить модели
+      - RAMALAMA_STORE=/var/lib/ramalama
       - RAMALAMA_IN_CONTAINER=1
       
-      # Дополнительные настройки для сохранения логов
-      - RAMALAMA_LOG_FILE=/workspace/data/logs/ramalama.log
+      # Пути для логов
+      - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
       
-      # Дополнительные настройки для лучшего логирования
-      - RAMALAMA_LOG_LEVEL=INFO
+      # Настройки Hugging Face
       - HF_HUB_DISABLE_PROGRESS_BARS=false
       - HF_HUB_ENABLE_HF_TRANSFER=1
+      
+      # Указываем движок для RamaLama
+      - RAMALAMA_ENGINE=docker
+      
+      # Указываем образ для запуска моделей
+      - RAMALAMA_IMAGE=ramalama:latest
     
     volumes:
-      # Монтируем директории
-      - ./models:/workspace/models
-      - ./data:/workspace/data
+      # КРИТИЧНО: Монтируем /var/lib/ramalama для сохранения моделей!
+      - ./models:/var/lib/ramalama:rw
+      
+      # Логи в отдельную директорию
+      - ./logs:/workspace/logs:rw
+      
+      # Конфиги в отдельную директорию
+      - ./config:/workspace/config:ro
+      
+      # Пользовательские данные
+      - ./data:/workspace/data:rw
     
-    # По умолчанию показываем help
-    command: ["tail", "-f", "/dev/null"]
+    # По умолчанию контейнер в режиме ожидания
+    command: tail -f /dev/null
     
     stdin_open: true
     tty: true
     restart: unless-stopped
 
-  # Альтернативный сервис без host network (если прокси не нужен)
+  # Альтернативный сервис без прокси
   ramalama-no-proxy:
     build: .
     image: ramalama:latest
     container_name: ramalama-no-proxy
     profiles: ["no-proxy"]
-    env_file: .env
-    network_mode: bridge
     
     environment:
-      # Переопределяем настройки для работы без прокси
-      - HTTP_PROXY=
-      - HTTPS_PROXY=
-      - RAMALAMA_MODELS_PATH=/workspace/models
+      - RAMALAMA_STORE=/var/lib/ramalama
       - RAMALAMA_IN_CONTAINER=1
-      
-      # Дополнительные настройки для сохранения логов
-      - RAMALAMA_LOG_FILE=/workspace/data/logs/ramalama.log
-      
-      # Дополнительные настройки для лучшего логирования
-      - RAMALAMA_LOG_LEVEL=INFO
-      - HF_HUB_DISABLE_PROGRESS_BARS=false
-      - HF_HUB_ENABLE_HF_TRANSFER=1
+      - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
     
     volumes:
-      - ./models:/workspace/models
-      - ./data:/workspace/data
-      
-    command: ["tail", "-f", "/dev/null"]
+      - ./models:/var/lib/ramalama:rw
+      - ./logs:/workspace/logs:rw
+      - ./config:/workspace/config:ro
+      - ./data:/workspace/data:rw
+    
+    command: tail -f /dev/null
     
     stdin_open: true
     tty: true
     restart: unless-stopped
-
-  # Сервис для проверки монтирования (опционально)
-  check-mounts:
-    image: alpine:latest
-    container_name: check-mounts
-    profiles: ["check"]
-    volumes:
-      - ./models:/workspace/models
-      - ./data:/workspace/data
-    command: >
-      sh -c "
-        echo '=== ПРОВЕРКА МОНТИРОВАНИЯ ===' &&
-        echo 'Текущая директория:' &&
-        pwd &&
-        echo '' &&
-        echo 'Содержимое /workspace/models:' &&
-        ls -la /workspace/models/ || echo 'Директория models не найдена' &&
-        echo '' &&
-        echo 'Содержимое /workspace/data:' &&
-        ls -la /workspace/data/ || echo 'Директория data не найдена' &&
-        echo '' &&
-        echo 'Права на директории:' &&
-        stat /workspace/models 2>/dev/null || echo 'Не удалось получить статистику models' &&
-        stat /workspace/data 2>/dev/null || echo 'Не удалось получить статистику data' &&
-        echo '=== КОНЕЦ ПРОВЕРКИ ==='
-      "

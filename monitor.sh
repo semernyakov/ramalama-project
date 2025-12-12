@@ -20,7 +20,9 @@ LOG_FILE="./data/monitor.log"
 # Функции для форматирования
 format_bytes() {
     local bytes=$1
-    if [ $bytes -lt 1024 ]; then
+    if [ -z "$bytes" ] || [ "$bytes" = "0" ]; then
+        echo "0B"
+    elif [ $bytes -lt 1024 ]; then
         echo "${bytes}B"
     elif [ $bytes -lt 1048576 ]; then
         echo "$(( bytes / 1024 ))KB"
@@ -37,6 +39,7 @@ get_timestamp() {
 
 # Лог события
 log_event() {
+    mkdir -p "$(dirname "$LOG_FILE")"
     echo "[$(get_timestamp)] $1" >> "$LOG_FILE"
 }
 
@@ -55,28 +58,48 @@ print_header() {
 check_docker_status() {
     echo -e "${CYAN}━━━ Docker Status ━━━${NC}"
     
-    if docker info &> /dev/null; then
+    local docker_cmd_output
+    if docker_cmd_output=$(docker info 2>&1); then
         echo -e "${GREEN}✓${NC} Docker: Running"
         
         # Проверка образа
+        local image_size=""
         if docker image inspect ramalama:latest &> /dev/null; then
-            local image_size=$(docker image inspect ramalama:latest --format='{{.Size}}')
-            echo -e "${GREEN}✓${NC} Image: ramalama:latest ($(format_bytes $image_size))"
+            image_size=$(docker image inspect ramalama:latest --format='{{.Size}}' 2>/dev/null || echo "")
+            if [ -n "$image_size" ]; then
+                echo -e "${GREEN}✓${NC} Image: ramalama:latest ($(format_bytes "$image_size"))"
+            else
+                echo -e "${GREEN}✓${NC} Image: ramalama:latest"
+            fi
         else
             echo -e "${YELLOW}⚠${NC} Image: Not built"
         fi
         
         # Проверка контейнеров
-        local running_containers=$(docker ps -q -f name=ramalama | wc -l)
-        local total_containers=$(docker ps -a -q -f name=ramalama | wc -l)
+        local running_containers=0
+        local total_containers=0
+        local unhealthy_containers=0
         
-        if [ $running_containers -gt 0 ]; then
-            echo -e "${GREEN}✓${NC} Containers: $running_containers running / $total_containers total"
+        if running_containers=$(docker ps -q -f name=ramalama 2>/dev/null | wc -l) && \
+           total_containers=$(docker ps -a -q -f name=ramalama 2>/dev/null | wc -l); then
+            # Проверить статус контейнеров на предмет перезапусков
+            unhealthy_containers=$(docker ps -a -f name=ramalama --format "{{.Status}}" 2>/dev/null | grep -i "restarting" | wc -l || echo "0")
+            
+            if [ $running_containers -gt 0 ]; then
+                if [ $unhealthy_containers -gt 0 ]; then
+                    echo -e "${YELLOW}⚠${NC} Containers: $running_containers running / $total_containers total ($unhealthy_containers restarting)"
+                else
+                    echo -e "${GREEN}✓${NC} Containers: $running_containers running / $total_containers total"
+                fi
+            else
+                echo -e "${YELLOW}⚠${NC} Containers: 0 running / $total_containers total"
+            fi
         else
-            echo -e "${YELLOW}⚠${NC} Containers: 0 running / $total_containers total"
+            echo -e "${YELLOW}⚠${NC} Container information unavailable"
         fi
     else
-        echo -e "${RED}✗${NC} Docker: Not running"
+        echo -e "${RED}✗${NC} Docker: Not running or API version mismatch"
+        echo -e "${YELLOW}ℹ${NC} $docker_cmd_output" | head -2
     fi
     
     echo ""
@@ -87,25 +110,31 @@ check_models_status() {
     echo -e "${CYAN}━━━ Models Status ━━━${NC}"
     
     if [ -d "$MODELS_DIR" ]; then
-        local model_count=$(find "$MODELS_DIR" -type f -name "*.gguf" 2>/dev/null | wc -l)
-        local total_size=$(du -sb "$MODELS_DIR" 2>/dev/null | cut -f1)
+        local model_count=$(find "$MODELS_DIR" -type f \( -name "*.gguf" -o -name "*.bin" \) 2>/dev/null | wc -l)
+        local total_size=0
+        
+        if [ $model_count -gt 0 ]; then
+            total_size=$(du -sb "$MODELS_DIR" 2>/dev/null | cut -f1 || echo "0")
+        fi
         
         echo -e "${GREEN}✓${NC} Models directory: $MODELS_DIR"
         echo -e "${BLUE}ℹ${NC} Total models: $model_count"
-        echo -e "${BLUE}ℹ${NC} Total size: $(format_bytes $total_size)"
+        echo -e "${BLUE}ℹ${NC} Total size: $(format_bytes "$total_size")"
         
         if [ $model_count -gt 0 ]; then
             echo ""
             echo "Recent models:"
-            find "$MODELS_DIR" -type f -name "*.gguf" -printf "%T@ %p\n" 2>/dev/null | \
+            find "$MODELS_DIR" -type f \( -name "*.gguf" -o -name "*.bin" \) -printf "%T@ %p\n" 2>/dev/null | \
                 sort -rn | head -5 | while read timestamp path; do
                 local filename=$(basename "$path")
                 local size=$(stat -f%z "$path" 2>/dev/null || stat -c%s "$path" 2>/dev/null)
-                echo "  • $filename ($(format_bytes $size))"
+                echo "  • $filename ($(format_bytes "$size"))"
             done
         fi
     else
         echo -e "${YELLOW}⚠${NC} Models directory not found"
+        mkdir -p "$MODELS_DIR"
+        echo -e "${BLUE}ℹ${NC} Created directory: $MODELS_DIR"
     fi
     
     echo ""
@@ -116,21 +145,25 @@ check_disk_status() {
     echo -e "${CYAN}━━━ Disk Space ━━━${NC}"
     
     # Общее пространство
-    local disk_info=$(df -h . | tail -1)
-    local total=$(echo $disk_info | awk '{print $2}')
-    local used=$(echo $disk_info | awk '{print $3}')
-    local avail=$(echo $disk_info | awk '{print $4}')
-    local percent=$(echo $disk_info | awk '{print $5}')
-    
-    echo -e "${BLUE}ℹ${NC} Total: $total | Used: $used | Available: $avail | Usage: $percent"
-    
-    # Предупреждение при низком пространстве
-    local percent_num=$(echo $percent | sed 's/%//')
-    if [ $percent_num -gt 90 ]; then
-        echo -e "${RED}⚠${NC} Warning: Disk space is running low!"
-        log_event "WARNING: Disk space at ${percent}"
-    elif [ $percent_num -gt 80 ]; then
-        echo -e "${YELLOW}⚠${NC} Caution: Disk space usage is high"
+    if command -v df &> /dev/null; then
+        local disk_info=$(df -h . | tail -1)
+        local total=$(echo $disk_info | awk '{print $2}')
+        local used=$(echo $disk_info | awk '{print $3}')
+        local avail=$(echo $disk_info | awk '{print $4}')
+        local percent=$(echo $disk_info | awk '{print $5}')
+        
+        echo -e "${BLUE}ℹ${NC} Total: $total | Used: $used | Available: $avail | Usage: $percent"
+        
+        # Предупреждение при низком пространстве
+        local percent_num=$(echo $percent | sed 's/%//')
+        if [ $percent_num -gt 90 ]; then
+            echo -e "${RED}⚠${NC} Warning: Disk space is running low!"
+            log_event "WARNING: Disk space at ${percent}"
+        elif [ $percent_num -gt 80 ]; then
+            echo -e "${YELLOW}⚠${NC} Caution: Disk space usage is high"
+        fi
+    else
+        echo -e "${YELLOW}⚠${NC} Disk information not available"
     fi
     
     echo ""
@@ -159,13 +192,23 @@ check_process_status() {
     echo -e "${CYAN}━━━ Running Processes ━━━${NC}"
     
     # Docker процессы
-    local docker_procs=$(docker ps --format "{{.Names}}: {{.Status}}" -f name=ramalama 2>/dev/null)
-    if [ -n "$docker_procs" ]; then
-        echo "$docker_procs" | while read line; do
-            echo -e "${GREEN}✓${NC} $line"
-        done
+    local docker_procs
+    if docker_procs=$(docker ps --format "{{.Names}}: {{.Status}}" -f name=ramalama 2>/dev/null); then
+        if [ -n "$docker_procs" ]; then
+            echo "$docker_procs" | while read line; do
+                if echo "$line" | grep -qi "restarting"; then
+                    echo -e "${YELLOW}⚠${NC} $line"
+                elif echo "$line" | grep -qi "up"; then
+                    echo -e "${GREEN}✓${NC} $line"
+                else
+                    echo -e "${BLUE}ℹ${NC} $line"
+                fi
+            done
+        else
+            echo -e "${YELLOW}⚠${NC} No RamaLama containers running"
+        fi
     else
-        echo -e "${YELLOW}⚠${NC} No RamaLama containers running"
+        echo -e "${YELLOW}⚠${NC} Unable to query Docker processes (API version mismatch?)"
     fi
     
     echo ""
@@ -175,6 +218,8 @@ check_process_status() {
 check_recent_logs() {
     echo -e "${CYAN}━━━ Recent Activity ━━━${NC}"
     
+    mkdir -p "$(dirname "$LOG_FILE")"
+    
     if [ -f "$LOG_FILE" ]; then
         echo "Last 5 events:"
         tail -5 "$LOG_FILE" 2>/dev/null | while read line; do
@@ -182,6 +227,7 @@ check_recent_logs() {
         done
     else
         echo -e "${YELLOW}⚠${NC} No log file found"
+        echo -e "${BLUE}ℹ${NC} Log file will be created on first event"
     fi
     
     echo ""
@@ -236,18 +282,31 @@ json_mode() {
     local docker_running="false"
     local image_exists="false"
     local containers_running=0
+    local containers_total=0
+    local containers_restarting=0
     local models_count=0
     local disk_usage="0"
+    local image_size=0
+    local docker_error=""
     
-    docker info &> /dev/null && docker_running="true"
-    docker image inspect ramalama:latest &> /dev/null && image_exists="true"
-    containers_running=$(docker ps -q -f name=ramalama | wc -l)
-    
-    if [ -d "$MODELS_DIR" ]; then
-        models_count=$(find "$MODELS_DIR" -type f -name "*.gguf" 2>/dev/null | wc -l)
+    if docker info &> /dev/null; then
+        docker_running="true"
+        if docker image inspect ramalama:latest &> /dev/null; then
+            image_exists="true"
+            image_size=$(docker image inspect ramalama:latest --format='{{.Size}}' 2>/dev/null || echo "0")
+        fi
+        containers_running=$(docker ps -q -f name=ramalama 2>/dev/null | wc -l || echo "0")
+        containers_total=$(docker ps -a -q -f name=ramalama 2>/dev/null | wc -l || echo "0")
+        containers_restarting=$(docker ps -a -f name=ramalama --format "{{.Status}}" 2>/dev/null | grep -i "restarting" | wc -l || echo "0")
+    else
+        docker_error="Docker daemon not accessible or API version mismatch"
     fi
     
-    local disk_info=$(df . | tail -1)
+    if [ -d "$MODELS_DIR" ]; then
+        models_count=$(find "$MODELS_DIR" -type f \( -name "*.gguf" -o -name "*.bin" \) 2>/dev/null | wc -l)
+    fi
+    
+    local disk_info=$(df . 2>/dev/null | tail -1 || echo "0 0 0 0 0%")
     disk_usage=$(echo $disk_info | awk '{print $5}' | sed 's/%//')
     
     cat << EOF
@@ -256,7 +315,11 @@ json_mode() {
   "docker": {
     "running": $docker_running,
     "image_exists": $image_exists,
-    "containers_running": $containers_running
+    "image_size": $image_size,
+    "image_size_formatted": "$(format_bytes "$image_size")",
+    "containers_running": $containers_running,
+    "containers_total": $containers_total,
+    "containers_restarting": $containers_restarting
   },
   "models": {
     "count": $models_count,
@@ -264,7 +327,9 @@ json_mode() {
   },
   "disk": {
     "usage_percent": $disk_usage
-  }
+  },
+  "errors": $([ -n "$docker_error" ] && echo "\"$docker_error\"" || echo "null"),
+  "health": $([ $containers_restarting -gt 0 ] && echo "\"unhealthy\"" || echo "\"healthy\"")
 }
 EOF
 }
