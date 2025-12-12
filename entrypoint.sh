@@ -11,6 +11,8 @@ if [ -n "$HTTP_PROXY" ]; then
     export http_proxy="$HTTP_PROXY"
     export https_proxy="$HTTPS_PROXY"
     echo "📡 Используется proxy: $HTTP_PROXY"
+else
+    echo "📡 Proxy: none"
 fi
 
 # Отключаем лишние прокси переменные
@@ -38,7 +40,17 @@ echo ""
 
 # Проверяем, есть ли уже скачанные модели
 echo "=== Существующие модели ==="
-find /workspace/models -name "*.gguf" -o -name "*.bin" 2>/dev/null | head -10 || echo "Моделей не найдено"
+existing_models=$(find /workspace/models -name "*.gguf" -o -name "*.bin" 2>/dev/null | head -10 || true)
+if [ ! -z "$existing_models" ]; then
+    echo "$existing_models" | while read model; do
+        if [ ! -z "$model" ]; then
+            size=$(du -h "$model" 2>/dev/null | cut -f1 || echo "unknown")
+            echo "   📦 $(basename "$model") ($size)"
+        fi
+    done
+else
+    echo "📭 Моделей не найдено"
+fi
 echo ""
 
 exec 3>&1
@@ -55,13 +67,43 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "▶️  Выполнение: ramalama $@" >&3
 echo "" >&3
 
-# Для команд pull добавляем прогресс
+# Для команд pull/run добавляем прогресс и проверку результата
 if [[ "$1" == "pull" || "$1" == "run" ]]; then
     echo "💾 Скачивание/загрузка модели..." >&3
     echo "   Файлы будут сохранены в: /workspace/models/" >&3
     echo "   Прогресс отображается в логах выше" >&3
     echo "" >&3
+    
+    # Запускаем команду и сохраняем вывод
+    output=$(ramalama "$@" 2>&1)
+    exit_code=$?
+    
+    # Выводим результат
+    echo "$output" | grep -v "INFO:ramalama:Using proxy" >&3
+    
+    # Проверяем результат скачивания
+    if [ $exit_code -eq 0 ] && [ "$1" = "pull" ] && [ ! -z "$2" ]; then
+        echo "" >&3
+        echo "🔍 Проверка результата скачивания:" >&3
+        sleep 2  # Даем время файлам записаться
+        downloaded_files=$(find /workspace/models -name "*$(basename "$2")*" -type f 2>/dev/null || true)
+        if [ ! -z "$downloaded_files" ]; then
+            echo "   ✅ Модель успешно скачана!" >&3
+            echo "$downloaded_files" | while read file; do
+                if [ ! -z "$file" ]; then
+                    size=$(du -h "$file" 2>/dev/null | cut -f1 || echo "unknown")
+                    echo "      📍 $(basename "$file") ($size)" >&3
+                fi
+            done
+            echo "      📂 Сохранено в: /workspace/models/" >&3
+        else
+            echo "   ⚠️  Модель не найдена в /workspace/models/" >&3
+            echo "      Проверьте логи выше на наличие ошибок" >&3
+        fi
+    fi
+    
+    exit $exit_code
+else
+    # Для остальных команд просто запускаем
+    exec ramalama "$@" 2>&1 | grep -v "INFO:ramalama:Using proxy" | cat >&3
 fi
-
-# Фильтруем логи прокси
-exec ramalama "$@" 2>&1 | grep -v "INFO:ramalama:Using proxy" | cat >&3

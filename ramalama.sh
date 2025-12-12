@@ -124,8 +124,15 @@ main() {
             ;;
         
         shell|bash)
-            print_header "Открытие bash в контейнере"
-            docker-compose run --rm ramalama bash
+            print_header "Открытие shell в контейнере"
+            print_info "Для работы с моделями используйте:"
+            echo "  ./ramalama.sh -- <любая команда ramalama>"
+            echo "  Пример: ./ramalama.sh -- --version"
+            echo ""
+            print_info "Команды без shell:"
+            echo "  ./ramalama.sh list          - список моделей"
+            echo "  ./ramalama.sh pull <model>  - скачать модель"
+            echo "  ./ramalama.sh run <model>   - запустить модель"
             ;;
         
         clean)
