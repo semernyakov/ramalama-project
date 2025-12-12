@@ -15,7 +15,7 @@ NC='\033[0m'
 # Настройки
 REFRESH_INTERVAL=${REFRESH_INTERVAL:-5}
 MODELS_DIR="./models"
-LOG_FILE="./data/monitor.log"
+LOG_FILE="./logs/monitor.log"
 
 # Функции для форматирования
 format_bytes() {
