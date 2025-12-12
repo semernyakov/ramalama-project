@@ -15,6 +15,9 @@ services:
       # Настройки ramalama (загружаются из .env файла)
       - RAMALAMA_IN_CONTAINER=1
       
+      # Дополнительные настройки для сохранения логов
+      - RAMALAMA_LOG_FILE=/workspace/data/logs/ramalama.log
+      
       # Дополнительные настройки для лучшего логирования
       - RAMALAMA_LOG_LEVEL=INFO
       - HF_HUB_DISABLE_PROGRESS_BARS=false
@@ -47,6 +50,9 @@ services:
       - HTTPS_PROXY=
       - RAMALAMA_MODELS_PATH=/workspace/models
       - RAMALAMA_IN_CONTAINER=1
+      
+      # Дополнительные настройки для сохранения логов
+      - RAMALAMA_LOG_FILE=/workspace/data/logs/ramalama.log
       
       # Дополнительные настройки для лучшего логирования
       - RAMALAMA_LOG_LEVEL=INFO

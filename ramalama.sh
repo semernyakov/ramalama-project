@@ -53,9 +53,31 @@ ensure_dirs() {
     print_success "Директории models и data готовы"
 }
 
-# Функция для запуска команд ramalama
+# Функция для запуска команд ramalama с логированием
 run_ramalama() {
-    docker-compose run --rm ramalama "$@"
+    # Инициализируем логирование
+    if [ -f "./log-manager.sh" ]; then
+        ./log-manager.sh init
+    fi
+    
+    # Определяем команды, которые нужно логировать
+    local log_commands=("pull" "run" "serve")
+    local should_log=false
+    
+    for cmd in "${log_commands[@]}"; do
+        if [ "$1" = "$cmd" ]; then
+            should_log=true
+            break
+        fi
+    done
+    
+    if [ "$should_log" = true ] && [ -f "./log-manager.sh" ]; then
+        # Запускаем с логированием
+        docker-compose run --rm ramalama "$@" 2>&1 | tee -a ./data/logs/ramalama.log
+    else
+        # Обычный запуск без логирования
+        docker-compose run --rm ramalama "$@"
+    fi
 }
 
 # Справка
@@ -75,11 +97,17 @@ show_help() {
 Команды RamaLama:
   info            - Показать информацию о системе
   list            - Список локальных моделей
-  pull <model>    - Скачать модель
-  run <model>     - Запустить модель в интерактивном режиме
-  serve <model>   - Запустить модель как сервер
+  pull <model>    - Скачать модель (с логированием)
+  run <model>     - Запустить модель в интерактивном режиме (с логированием)
+  serve <model>   - Запустить модель как сервер (с логированием)
   rm <model>      - Удалить модель
   version         - Показать версию ramalama
+
+Команды логирования:
+  logs            - Показать последние логи
+  logs tail       - Мониторинг логов в реальном времени
+  logs clean      - Очистить старые логи
+  logs status     - Статус системы логирования
 
 Примеры:
   ./ramalama.sh build
@@ -88,6 +116,7 @@ show_help() {
   ./ramalama.sh pull llama3.2:1b
   ./ramalama.sh run llama3.2:1b
   ./ramalama.sh serve llama3.2:1b --port 8080
+  ./ramalama.sh logs tail
 
 Прямой запуск:
   ./ramalama.sh -- <любая команда ramalama>
@@ -212,6 +241,15 @@ main() {
             shift
             check_image
             run_ramalama "$@"
+            ;;
+        
+        logs)
+            if [ -f "./log-manager.sh" ]; then
+                ./log-manager.sh "${@:2}"
+            else
+                print_error "Система логирования не найдена"
+                print_info "Логи можно найти в: ./data/logs/"
+            fi
             ;;
         
         *)

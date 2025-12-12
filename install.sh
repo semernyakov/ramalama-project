@@ -115,8 +115,8 @@ check_requirements() {
     # Проверка памяти
     print_step "Проверка памяти..."
     if command -v free &> /dev/null; then
-        local total_mem=$(free -g | grep Mem: | awk '{print $2}')
-        if [ $total_mem -gt 4 ]; then
+        local total_mem=$(free -g | grep Mem: | awk '{print $2}' 2>/dev/null || echo "0")
+        if [ ! -z "$total_mem" ] && [ "$total_mem" -gt 4 ] 2>/dev/null; then
             print_success "Память: ${total_mem}GB"
         else
             print_warning "Мало памяти: ${total_mem}GB (рекомендуется минимум 4GB)"
@@ -211,14 +211,14 @@ create_directories() {
 set_permissions() {
     print_header "Установка прав доступа"
     
-    local scripts=("ramalama.sh" "quick-test.sh" "entrypoint.sh" "examples.sh" "monitor.sh" "backup.sh")
+    local scripts=("ramalama.sh" "quick-test.sh" "entrypoint.sh" "examples.sh" "monitor.sh" "backup.sh" "log-manager.sh" "debug-download.sh" "fix-volumes.sh")
     
     for script in "${scripts[@]}"; do
         if [ -f "$script" ]; then
             chmod +x "$script"
             print_success "Права установлены: $script"
         else
-            print_warning "Файл не найден: $script"
+            print_info "Файл не найден: $script"
         fi
     done
     
