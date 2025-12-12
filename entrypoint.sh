@@ -5,10 +5,10 @@ echo "🚀 RamaLama Docker Environment"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Настройка прокси
-if [ -n "$HTTP_PROXY" ]; then
-    export http_proxy="$HTTP_PROXY"
-    export https_proxy="$HTTPS_PROXY"
-    echo "📡 Proxy: $HTTP_PROXY"
+if [ -n "${HTTP_PROXY:-}" ]; then
+    export http_proxy="${HTTP_PROXY:-}"
+    export https_proxy="${HTTPS_PROXY:-}"
+    echo "📡 Proxy: ${HTTP_PROXY:-none}"
 else
     echo "📡 Proxy: none"
 fi
