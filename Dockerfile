@@ -6,8 +6,10 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка ramalama
-RUN pip install --no-cache-dir ramalama
+# Обновление pip и установка ramalama с обходом externally-managed-environment
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --break-system-packages ramalama || \
+    pip install --no-cache-dir ramalama
 
 # Создание рабочих директорий
 RUN mkdir -p /workspace/models /workspace/data
