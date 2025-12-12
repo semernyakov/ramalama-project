@@ -1,14 +1,17 @@
-.PHONY: help build rebuild test clean info list shell version
+.PHONY: help build rebuild test clean info list shell version backup setup-dirs
 
 # Цвета для вывода
 BLUE := \033[0;34m
 GREEN := \033[0;32m
+RED := \033[0;31m
+YELLOW := \033[1;33m
 NC := \033[0m
 
 help:
 	@echo "$(BLUE)RamaLama Docker - Команды управления$(NC)"
 	@echo ""
 	@echo "$(GREEN)Основные команды:$(NC)"
+	@echo "  make setup-dirs - Проверить и создать директории"
 	@echo "  make build      - Собрать Docker образ"
 	@echo "  make rebuild    - Пересобрать образ с нуля"
 	@echo "  make test       - Запустить тесты"
@@ -26,6 +29,13 @@ help:
 	@echo "  make pull MODEL=llama3.2:1b"
 	@echo "  make run MODEL=llama3.2:1b"
 	@echo "  make serve MODEL=llama3.2:1b PORT=8080"
+	@echo ""
+	@echo "$(GREEN)Бэкапы и мониторинг:$(NC)"
+	@echo "  make backup     - Создать бэкап моделей"
+	@echo "  make monitor    - Запустить мониторинг системы"
+	@echo ""
+	@echo "$(GREEN)Установка:$(NC)"
+	@echo "  make install    - Полная настройка проекта"
 
 build:
 	@echo "$(BLUE)Сборка Docker образа...$(NC)"
@@ -43,6 +53,11 @@ clean:
 	@echo "$(BLUE)Очистка...$(NC)"
 	@./ramalama.sh clean
 
+# Новая команда для проверки и создания директорий
+setup-dirs:
+	@echo "$(BLUE)Проверка структуры директорий...$(NC)"
+	@./setup-dirs.sh
+
 info:
 	@./ramalama.sh info
 
@@ -54,6 +69,16 @@ version:
 
 shell:
 	@./ramalama.sh shell
+
+# Команда для создания бэкапа
+backup:
+	@echo "$(BLUE)Создание бэкапа моделей...$(NC)"
+	@./backup.sh create
+
+# Команда для мониторинга
+monitor:
+	@echo "$(BLUE)Запуск мониторинга системы...$(NC)"
+	@./monitor.sh
 
 # Команды для работы с моделями
 pull:
@@ -87,8 +112,8 @@ endif
 # Быстрая установка
 install:
 	@echo "$(BLUE)Настройка проекта...$(NC)"
-	@chmod +x ramalama.sh quick-test.sh entrypoint.sh
-	@mkdir -p models data
+	@chmod +x ramalama.sh quick-test.sh entrypoint.sh examples.sh monitor.sh backup.sh setup-dirs.sh
+	@./setup-dirs.sh
 	@echo "$(GREEN)✓ Проект настроен$(NC)"
 	@make build
 	@make test
