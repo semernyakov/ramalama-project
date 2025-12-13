@@ -2,94 +2,75 @@ version: '3.8'
 
 services:
   ramalama:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ramalama:latest
     container_name: ramalama
     
-    # Use bridge network with proper port mapping for better security
     ports:
       - "8080:8080"
+    
     networks:
       - ramalama-network
     
+    # Load environment from config/.env
     env_file:
       - config/.env
     
+    # Override/extend environment variables
     environment:
-      # Proxy settings (from .env)
-      - HTTP_PROXY=${HTTP_PROXY:-}
-      - HTTPS_PROXY=${HTTPS_PROXY:-}
-      - NO_PROXY=localhost,127.0.0.0/8,::1
+      # CRITICAL: Models directory (in container) - for RamaLama compatibility
+      - RAMALAMA_STORE=/workspace/models
       
-      # CRITICAL: Specify where RamaLama should store models
-      - RAMALAMA_STORE=/var/lib/ramalama
-      - RAMALAMA_IN_CONTAINER=1
-      - RAMALAMA_LOG_LEVEL=ERROR
-      - RAMALAMA_ENGINE=llama.cpp
+      # Explicit paths (from config/.env, but can override here)
+      - RAMALAMA_MODELS_PATH: /workspace/models
+      - RAMALAMA_DATA_PATH: /workspace/data
+      - RAMALAMA_LOG_FILE: /workspace/logs/ramalama.log
+      - RAMALAMA_ENGINE: llama.cpp
       
-      # Log paths
-      - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
+      # Proxy from config/.env (${HTTP_PROXY:-} will use .env value or empty)
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.0/8,::1,host.docker.internal}
       
-      # Hugging Face settings
-      - HF_HUB_DISABLE_PROGRESS_BARS=false
-      - HF_HUB_ENABLE_HF_TRANSFER=1
+      # Hugging Face
+      - HF_HOME=/workspace/cache
+      - HF_HUB_DISABLE_PROGRESS_BARS: ${HF_HUB_DISABLE_PROGRESS_BARS:-false}
+      - HF_HUB_ENABLE_HF_TRANSFER: ${HF_HUB_ENABLE_HF_TRANSFER:-1}
+      
+      # Log level from config/.env
+      RAMALAMA_LOG_LEVEL: ${RAMALAMA_LOG_LEVEL:-ERROR}
     
     volumes:
-      # CRITICAL: Mount /var/lib/ramalama for model persistence!
-      - ./models:/var/lib/ramalama:rw
+      # VARIANT B: Only mount models for persistence
+      - ./models:/workspace/models:rw
+      # Symlink for llama.cpp compatibility (if it expects /mnt/models)
+      - /workspace/models:/mnt/models:rw
+      # Logs stay inside container (can be extracted via docker cp if needed)
+      # Data stays inside container
+      # Cache stays inside container
       
-      # Logs in separate directory
-      - ./logs:/workspace/logs:rw
-      
-      # User data
-      - ./data:/workspace/data:rw
-      
-      # Cache for performance
-      - ./cache:/workspace/cache:rw
-      
-      # Configs in separate directory
+      # Optional: mount config as read-only for reference
       - ./config:/workspace/config:ro
     
-    # Default container in waiting mode
+    # Default waiting mode
     command: tail -f /dev/null
-    
     stdin_open: true
     tty: true
     restart: unless-stopped
+    
+    # Resource limits (from config/.env or defaults)
+    # Uncomment and adjust based on your system
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: ${MEMORY_LIMIT:-4g}
+    #       cpus: ${CPU_LIMIT:-4}
 
-  # Alternative service without proxy
-  ramalama-no-proxy:
-    build: .
-    image: ramalama:latest
-    container_name: ramalama-no-proxy
-    profiles: ["no-proxy"]
-    
-    ports:
-      - "8080:8080"
-    networks:
-      - ramalama-network
-    
-    environment:
-      - RAMALAMA_STORE=/var/lib/ramalama
-      - RAMALAMA_IN_CONTAINER=1
-      - RAMALAMA_LOG_LEVEL=ERROR
-      - RAMALAMA_ENGINE=llama.cpp
-      - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
-    
-    volumes:
-      - ./models:/var/lib/ramalama:rw
-      - ./logs:/workspace/logs:rw
-      - ./data:/workspace/data:rw
-      - ./cache:/workspace/cache:rw
-      - ./config:/workspace/config:ro
-    
-    command: tail -f /dev/null
-    
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-
-# Network configuration
+# Network
 networks:
   ramalama-network:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: "true"

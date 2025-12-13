@@ -1,119 +1,210 @@
-.PHONY: help build rebuild test clean info list shell version backup setup-dirs
+.PHONY: help build rebuild serve run pull list clean logs \
+        health config test info up down restart shell setup-dirs cache-clean
 
-# Цвета для вывода
-BLUE := \033[0;34m
-GREEN := \033[0;32m
+# ============================================
+# VARIABLES
+# ============================================
+
+DOCKER := docker
+COMPOSE := docker-compose
+IMAGE_NAME := ramalama
+IMAGE_TAG := latest
+CONTAINER_NAME := ramalama
+CONFIG_FILE := config/.env
+
+# Environment variables for Variant B configuration
+RAMALAMA_STORE := /workspace/models
+HF_HOME := /workspace/cache
+RAMALAMA_DATA_PATH := /workspace/data
+RAMALAMA_LOG_PATH := /workspace/logs
+
+# Colors
 RED := \033[0;31m
-YELLOW := \033[1;33m
+GREEN := \033[0;32m
+YELLOW := \033[0;33m
 NC := \033[0m
 
+# ============================================
+# HELP
+# ============================================
+
 help:
-	@echo "$(BLUE)RamaLama Docker - Команды управления$(NC)"
+	@echo "$(GREEN)RamaLama Docker CLI$(NC)"
 	@echo ""
-	@echo "$(GREEN)Основные команды:$(NC)"
-	@echo "  make setup-dirs - Проверить и создать директории"
-	@echo "  make build      - Собрать Docker образ"
-	@echo "  make rebuild    - Пересобрать образ с нуля"
-	@echo "  make test       - Запустить тесты"
-	@echo "  make clean      - Очистить контейнеры и образы"
+	@echo "$(YELLOW)Build & Setup:$(NC)"
+	@echo "  make setup-dirs       - Create required directories"
+	@echo "  make build            - Build Docker image"
+	@echo "  make rebuild          - Rebuild without cache"
+	@echo "  make buildx           - Fast parallel build with buildx"
 	@echo ""
-	@echo "$(GREEN)Информация:$(NC)"
-	@echo "  make info       - Показать информацию о системе"
-	@echo "  make list       - Список локальных моделей"
-	@echo "  make version    - Показать версию ramalama"
+	@echo "$(YELLOW)Run & Serve:$(NC)"
+	@echo "  make up               - Start container in background"
+	@echo "  make serve MODEL=... PORT=...  - Serve model (default: llama3.2:1b:8080)"
+	@echo "  make run CMD=...      - Run command in container"
+	@echo "  make shell            - Interactive bash shell"
 	@echo ""
-	@echo "$(GREEN)Разработка:$(NC)"
-	@echo "  make shell      - Открыть bash в контейнере"
+	@echo "$(YELLOW)Models:$(NC)"
+	@echo "  make pull MODEL=...   - Pull model (e.g., tinyllama, llama3.2:1b)"
+	@echo "  make list             - List available models"
+	@echo "  make info             - Show RamaLama info"
 	@echo ""
-	@echo "$(GREEN)Использование моделей:$(NC)"
-	@echo "  make pull MODEL=llama3.2:1b"
-	@echo "  make run MODEL=llama3.2:1b"
-	@echo "  make serve MODEL=llama3.2:1b PORT=8080"
-	@echo ""
-	@echo "$(GREEN)Бэкапы и мониторинг:$(NC)"
-	@echo "  make backup     - Создать бэкап моделей"
-	@echo "  make monitor    - Запустить мониторинг системы"
-	@echo ""
-	@echo "$(GREEN)Установка:$(NC)"
-	@echo "  make install    - Полная настройка проекта"
+	@echo "$(YELLOW)Maintenance:$(NC)"
+	@echo "  make logs             - Show container logs (tail -f)"
+	@echo "  make health           - Check container health"
+	@echo "  make cache-clean      - Clean HuggingFace cache only"
+	@echo "  make down             - Stop and remove container"
+	@echo "  make clean            - Clean up containers, images, volumes"
+	@echo "  make config           - Show loaded config (.env)"
+	@echo "  make test             - Quick sanity test"
+
+# ============================================
+# SETUP TARGETS
+# ============================================
+
+setup-dirs:
+	@echo "$(GREEN)Creating required directories for Variant B...$(NC)"
+	@mkdir -p models cache data logs
+	@echo "$(GREEN)✓ Directories created: models/ cache/ data/ logs/$(NC)"
+
+# ============================================
+# BUILD TARGETS
+# ============================================
 
 build:
-	@echo "$(BLUE)Сборка Docker образа...$(NC)"
-	@./ramalama.sh build
+	@echo "$(GREEN)Building Docker image...$(NC)"
+	$(COMPOSE) build --progress=plain
 
 rebuild:
-	@echo "$(BLUE)Пересборка Docker образа...$(NC)"
-	@./ramalama.sh rebuild
+	@echo "$(GREEN)Rebuilding Docker image (no cache)...$(NC)"
+	$(COMPOSE) build --no-cache --progress=plain
 
-test:
-	@echo "$(BLUE)Запуск тестов...$(NC)"
-	@./test/quick-test.sh
+buildx:
+	@echo "$(GREEN)Building with buildx (parallel, cached)...$(NC)"
+	docker buildx build \
+		--file Dockerfile \
+		--tag $(IMAGE_NAME):$(IMAGE_TAG) \
+		--cache-from=type=local \
+		--cache-to=type=local,dest=/tmp/.buildx-cache \
+		--load .
+	@echo "$(GREEN)✓ Image built with buildx cache$(NC)"
 
-clean:
-	@echo "$(BLUE)Очистка...$(NC)"
-	@./ramalama.sh clean
+# ============================================
+# RUN & SERVE TARGETS
+# ============================================
 
-# Новая команда для проверки и создания директорий
-setup-dirs:
-	@echo "$(BLUE)Проверка структуры директорий...$(NC)"
-	@./setup-dirs.sh
+up:
+	@echo "$(GREEN)Starting container...$(NC)"
+	$(COMPOSE) up -d
+	@sleep 2
+	@$(MAKE) health
 
-info:
-	@./ramalama.sh info
+down:
+	@echo "$(YELLOW)Stopping container...$(NC)"
+	$(COMPOSE) down
 
-list:
-	@./ramalama.sh list
-
-version:
-	@./ramalama.sh version
+restart: down up
 
 shell:
-	@./ramalama.sh shell
-
-# Команда для создания бэкапа
-backup:
-	@echo "$(BLUE)Создание бэкапа моделей...$(NC)"
-	@./backup.sh create
-
-# Команда для мониторинга
-monitor:
-	@echo "$(BLUE)Запуск мониторинга системы...$(NC)"
-	@./monitor.sh
-
-# Команды для работы с моделями
-pull:
-ifndef MODEL
-	@echo "$(RED)Ошибка: укажите MODEL$(NC)"
-	@echo "Пример: make pull MODEL=llama3.2:1b"
-	@exit 1
-endif
-	@./ramalama.sh pull $(MODEL)
+	@echo "$(GREEN)Opening interactive shell...$(NC)"
+	$(COMPOSE) exec ramalama bash
 
 run:
-ifndef MODEL
-	@echo "$(RED)Ошибка: укажите MODEL$(NC)"
-	@echo "Пример: make run MODEL=llama3.2:1b"
-	@exit 1
-endif
-	@./ramalama.sh run $(MODEL)
+	@if [ -z "$(CMD)" ]; then \
+		echo "$(RED)Error: CMD not specified$(NC)"; \
+		echo "Usage: make run CMD='ramalama list'"; \
+		exit 1; \
+	fi
+	@$(COMPOSE) exec ramalama $(CMD)
 
 serve:
-ifndef MODEL
-	@echo "$(RED)Ошибка: укажите MODEL$(NC)"
-	@echo "Пример: make serve MODEL=llama3.2:1b PORT=8080"
-	@exit 1
-endif
-ifdef PORT
-	@./ramalama.sh serve $(MODEL) --port $(PORT)
-else
-	@./ramalama.sh serve $(MODEL)
-endif
+	@MODEL=$${MODEL:-llama3.2:1b}; \
+PORT=$${PORT:-8080}; \
+	echo "$(GREEN)Serving model: $$MODEL on port $$PORT$(NC)"; \
+	$(MAKE) up; \
+	sleep 2; \
+	$(COMPOSE) exec ramalama ramalama serve $$MODEL --port $$PORT
 
-# Быстрая установка
-install:
-	@echo "$(BLUE)Настройка проекта...$(NC)"
-	@chmod +x ramalama.sh test/quick-test.sh entrypoint.sh examples.sh monitor.sh backup.sh setup-dirs.sh
-	@./setup-dirs.sh
-	@echo "$(GREEN)✓ Проект настроен$(NC)"
-	@make build
-	@make test
+# ============================================
+# MODEL MANAGEMENT
+# ============================================
+
+pull:
+	@if [ -z "$(MODEL)" ]; then \
+		echo "$(RED)Error: MODEL not specified$(NC)"; \
+		echo "Usage: make pull MODEL=tinyllama"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Pulling model: $(MODEL)$(NC)"
+	$(COMPOSE) exec ramalama ramalama pull $(MODEL)
+
+list:
+	@echo "$(GREEN)Available models:$(NC)"
+	$(COMPOSE) exec ramalama ramalama list
+
+info:
+	@echo "$(GREEN)RamaLama Info:$(NC)"
+	$(COMPOSE) exec ramalama ramalama info
+
+# ============================================
+# LOGS & HEALTH
+# ============================================
+
+logs:
+	$(COMPOSE) logs -f ramalama
+
+health:
+	@echo "$(GREEN)Checking container health...$(NC)"
+	@if $(COMPOSE) exec ramalama curl -f http://localhost:8080/health 2>/dev/null; then \
+		echo "$(GREEN)✓ Container is healthy$(NC)"; \
+	else \
+		echo "$(YELLOW)⚠ Container may not be ready yet$(NC)"; \
+	fi
+
+# ============================================
+# CONFIG & TESTING
+# ============================================
+
+config:
+	@echo "$(GREEN)Configuration from $(CONFIG_FILE):$(NC)"
+	@if [ -f "$(CONFIG_FILE)" ]; then \
+		cat "$(CONFIG_FILE)"; \
+	else \
+		echo "$(RED)Config file not found: $(CONFIG_FILE)$(NC)"; \
+	fi
+
+test:
+	@echo "$(GREEN)Running sanity checks...$(NC)"
+	@echo ""
+	@echo "Checking Docker..."
+	@$(DOCKER) --version
+	@echo ""
+	@echo "Checking docker-compose..."
+	@$(COMPOSE) --version
+	@echo ""
+	@echo "Checking config..."
+	@[ -f "$(CONFIG_FILE)" ] && echo "$(GREEN)✓ Config file exists$(NC)" || \
+		echo "$(YELLOW)⚠ Config file missing (will use defaults)$(NC)"
+	@echo ""
+	@echo "$(GREEN)✓ Sanity checks passed$(NC)"
+
+# ============================================
+# CLEANUP
+# ============================================
+
+cache-clean:
+	@echo "$(YELLOW)Cleaning HuggingFace cache...$(NC)"
+	@if [ -d "cache" ]; then \
+		rm -rf ./cache/*; \
+		echo "$(GREEN)✓ Cache cleaned$(NC)"; \
+	else \
+		echo "$(YELLOW)Cache directory not found$(NC)"; \
+	fi
+
+clean:
+	@echo "$(RED)Cleaning up Docker resources...$(NC)"
+	$(COMPOSE) down -v
+	$(DOCKER) rmi $(IMAGE_NAME):$(IMAGE_TAG) 2>/dev/null || true
+	rm -rf ./logs ./cache ./data
+	@echo "$(GREEN)✓ Cleanup complete$(NC)"
+
+.DEFAULT_GOAL := help
