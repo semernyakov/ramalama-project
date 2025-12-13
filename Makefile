@@ -75,8 +75,13 @@ build:
 	$(COMPOSE) build --progress=plain
 
 rebuild:
-	@echo "$(GREEN)Rebuilding Docker image (no cache)...$(NC)"
-	$(COMPOSE) build --no-cache --progress=plain
+	@echo "$(GREEN)Rebuilding Docker image (no cache) with buildx...$(NC)"
+	docker buildx build \
+		--file Dockerfile \
+		--tag $(IMAGE_NAME):$(IMAGE_TAG) \
+		--no-cache \
+		--load .
+	@echo "$(GREEN)✓ Image rebuilt with buildx (no cache)$(NC)"
 
 buildx:
 	@echo "$(GREEN)Building with buildx...$(NC)"
