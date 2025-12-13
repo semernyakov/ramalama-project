@@ -24,23 +24,23 @@ services:
       - RAMALAMA_STORE=/workspace/models
       
       # Explicit paths (from config/.env, but can override here)
-      - RAMALAMA_MODELS_PATH: /workspace/models
-      - RAMALAMA_DATA_PATH: /workspace/data
-      - RAMALAMA_LOG_FILE: /workspace/logs/ramalama.log
-      - RAMALAMA_ENGINE: llama.cpp
+      - RAMALAMA_MODELS_PATH=/workspace/models
+      - RAMALAMA_DATA_PATH=/workspace/data
+      - RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log
+      - RAMALAMA_ENGINE=llama.cpp
       
       # Proxy from config/.env (${HTTP_PROXY:-} will use .env value or empty)
-      HTTP_PROXY: ${HTTP_PROXY:-}
-      HTTPS_PROXY: ${HTTPS_PROXY:-}
-      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.0/8,::1,host.docker.internal}
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.0/8,::1,host.docker.internal}
       
       # Hugging Face
       - HF_HOME=/workspace/cache
-      - HF_HUB_DISABLE_PROGRESS_BARS: ${HF_HUB_DISABLE_PROGRESS_BARS:-false}
-      - HF_HUB_ENABLE_HF_TRANSFER: ${HF_HUB_ENABLE_HF_TRANSFER:-1}
+      - HF_HUB_DISABLE_PROGRESS_BARS=${HF_HUB_DISABLE_PROGRESS_BARS:-false}
+      - HF_HUB_ENABLE_HF_TRANSFER=${HF_HUB_ENABLE_HF_TRANSFER:-1}
       
       # Log level from config/.env
-      RAMALAMA_LOG_LEVEL: ${RAMALAMA_LOG_LEVEL:-ERROR}
+      - RAMALAMA_LOG_LEVEL=${RAMALAMA_LOG_LEVEL:-ERROR}
     
     volumes:
       # VARIANT B: Only mount models for persistence
