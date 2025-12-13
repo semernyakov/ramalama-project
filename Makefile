@@ -72,10 +72,14 @@ setup-dirs:
 
 build:
 	@echo "$(GREEN)Building Docker image...$(NC)"
-	$(COMPOSE) build --progress=plain
+	docker buildx build \
+		--file Dockerfile \
+		--tag $(IMAGE_NAME):$(IMAGE_TAG) \
+		--load .
+	@echo "$(GREEN)✓ Image built with buildx$(NC)"
 
 rebuild:
-	@echo "$(GREEN)Rebuilding Docker image (no cache) with buildx...$(NC)"
+	@echo "$(GREEN)Rebuilding Docker image (no cache)...$(NC)"
 	docker buildx build \
 		--file Dockerfile \
 		--tag $(IMAGE_NAME):$(IMAGE_TAG) \
