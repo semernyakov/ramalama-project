@@ -1,0 +1,5 @@
+docker compose --profile main build --parallel
+docker buildx bake
+use uv
+vLLM
+buildx build

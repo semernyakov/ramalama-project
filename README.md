@@ -30,8 +30,11 @@ RamaLama Docker Project provides a **secure, production-ready containerized envi
 
 ### 🎯 Key Capabilities
 
+- ✅ **Fast Build System** - uv + docker buildx for 3-5x faster builds (3-5 min first time, ~30 sec subsequent)
+- ✅ **Variant B Architecture** - Only models on host, everything else in container for simplicity
+- ✅ **Makefile as Primary CLI** - Clean, modern command interface replacing shell scripts
+- ✅ **Complete .env Integration** - All configuration in config/.env with automatic loading
 - ✅ **Secure Multi-stage Docker Builds** - Production-grade security with non-root execution
-- ✅ **Comprehensive Management CLI** - Python-based management interface with health checks
 - ✅ **Proxy Support & Configuration** - HTTP/HTTPS proxy support with automatic detection
 - ✅ **Advanced Monitoring & Logging** - Real-time monitoring, centralized logging, and log rotation
 - ✅ **Automated Backup System** - Model backup and restoration capabilities
@@ -47,8 +50,8 @@ RamaLama Docker Project provides a **secure, production-ready containerized envi
 
 ```bash
 # One-command setup with all dependencies and configuration
-chmod +x install.sh
-./install.sh
+chmod +x scripts/install.sh
+./scripts/install.sh
 
 # Installation automatically:
 # ✓ Checks system requirements
@@ -62,10 +65,10 @@ chmod +x install.sh
 
 ```bash
 # 1. Make scripts executable
-chmod +x *.sh
+chmod +x scripts/*.sh
 
 # 2. Build Docker image
-./ramalama.sh build
+./scripts/ramalama.sh build
 
 # 3. Run tests
 ./test/quick-test.sh
@@ -75,16 +78,21 @@ python3 main.py status
 python3 main.py health
 ```
 
-### Option 3: Using Make Commands
+### Option 3: Fast Build with Make (Recommended)
 
 ```bash
+# ⚡ Fast build with uv + buildx (first time: ~3-5 min, subsequent: ~30 sec)
+make buildx
+
+# Start container
+make up
+
+# Download and serve model
+make pull MODEL=tinyllama
+make serve MODEL=tinyllama PORT=8080
+
 # Show all available commands
 make help
-
-# Quick setup and testing
-make install
-make test
-make status
 ```
 
 ---
@@ -134,21 +142,27 @@ ramalama-project/
 ├── 📚 Documentation
 │   ├── LOGROTATION_GUIDE.md       # Complete log rotation guide
 │   ├── TROUBLESHOOTING.md         # Problem-solving guide
-│   └── RAMA_LAMA_CODE_AUDIT_REPORT.md  # Security audit results
+│   ├── RAMA_LAMA_CODE_AUDIT_REPORT.md  # Security audit results
+│   └── BUILD_GUIDE.md             # Fast build guide with uv + buildx
 │
 ├── ⚙️ Configuration
 │   ├── config/
-│   │   ├── .env                   # Environment configuration
+│   │   ├── .env                   # Environment configuration (auto-loaded)
 │   │   └── logrotate.conf         # Log rotation configuration
-│   ├── models/                    # AI model storage (auto-created)
-│   ├── logs/                      # Application logs (auto-created)
-│   ├── data/                      # User data (auto-created)
-│   ├── cache/                     # Cache directory (auto-created)
+│   ├── models/                    # AI model storage (mounted from host)
+│   ├── logs/                      # Application logs (container-only)
+│   ├── data/                      # User data (container-only)
+│   ├── cache/                     # Cache directory (container-only)
 │   └── backups/                   # Backup storage (auto-created)
 │
-└── 📄 Documentation
-    ├── llama-server.py            # HTTP server for model inference
-    ├── env.example                # Configuration template
+├── 🚀 Fast Build System
+│   ├── Dockerfile                 # Multi-stage with uv (fast Python deps)
+│   ├── docker-bake.hcl            # Parallel buildx configuration
+│   ├── docker-compose.yml         # Variant B (models only on host)
+│   ├── Makefile                   # Primary CLI (replaces shell scripts)
+│   └── entrypoint.sh              # Enhanced startup with diagnostics
+│
+└── 📄 Legacy Support
     └── .gitignore                 # Git ignore rules
 ```
 
@@ -218,6 +232,7 @@ ramalama-project/
 | Document | Description |
 |----------|-------------|
 | **[README.md](README.md)** | This comprehensive guide |
+| **[BUILD_GUIDE.md](docs/BUILD_GUIDE.md)** | Fast build system with uv + buildx |
 | **[LOGROTATION_GUIDE.md](docs/LOGROTATION_GUIDE.md)** | Complete log rotation setup and management |
 | **[TROUBLESHOOTING.md](test/TROUBLESHOOTING.md)** | Detailed problem-solving guide |
 | **[test/README.md](test/README.md)** | Testing infrastructure and procedures |
@@ -225,16 +240,21 @@ ramalama-project/
 ### Built-in Help
 
 ```bash
-# Management interface help
-python3 main.py --help
-
-# Script help
-./ramalama.sh help
-./monitor.sh --help
-./backup.sh --help
-
-# Make commands
+# Make commands (primary interface)
 make help
+
+# Fast build commands
+make buildx          # First build: ~3-5 min, subsequent: ~30 sec
+make serve MODEL=tinyllama  # Serve model on port 8080
+
+# Legacy scripts (still supported)
+./scripts/ramalama.sh help
+./scripts/monitor.sh --help
+./scripts/backup.sh --help
+
+# Configuration
+make config          # Show current configuration from config/.env
+make test            # Run sanity checks
 ```
 
 ---
@@ -245,17 +265,16 @@ make help
 
 ```bash
 # Download a model
-./ramalama.sh pull tinyllama
+./scripts/ramalama.sh pull tinyllama
 
 # List available models
-./ramalama.sh list
-python3 main.py list-models
+./scripts/ramalama.sh list
 
 # Run model interactively
-./ramalama.sh run tinyllama
+./scripts/ramalama.sh run tinyllama
 
 # Run as API server
-./ramalama.sh serve tinyllama --port 8080
+./scripts/ramalama.sh serve tinyllama --port 8080
 ```
 
 ### System Management
@@ -266,13 +285,13 @@ python3 main.py status
 python3 main.py health
 
 # Real-time monitoring
-./monitor.sh
-./monitor.sh --json
+./scripts/monitor.sh
+./scripts/monitor.sh --json
 
 # Create backup
-./backup.sh create
-./backup.sh list
-./backup.sh restore backups/ramalama_backup_*.tar.gz
+./scripts/backup.sh create
+./scripts/backup.sh list
+./scripts/backup.sh restore backups/ramalama_backup_*.tar.gz
 ```
 
 ### Advanced Configuration
@@ -283,10 +302,10 @@ python3 main.py run "ramalama info"
 python3 main.py run "ls -la /workspace/models"
 
 # Container shell access
-./ramalama.sh shell
+./scripts/ramalama.sh shell
 
 # Direct ramalama access
-./ramalama.sh -- <any-ramalama-command>
+./scripts/ramalama.sh -- <any-ramalama-command>
 ```
 
 ---
@@ -299,7 +318,7 @@ All settings are managed through the `.env` file in the `config/` directory:
 
 ```bash
 # Copy and configure
-cp env.example config/.env
+cp config/env.example config/.env
 nano config/.env
 ```
 
@@ -380,17 +399,17 @@ echo "All tests passed!"
 python3 main.py health
 
 # Rebuild image
-./ramalama.sh rebuild
+./scripts/ramalama.sh rebuild
 
 # Clean everything
-./ramalama.sh clean
+./scripts/ramalama.sh clean
 make clean
 ```
 
 #### Model Download Issues
 ```bash
 # Debug download problems
-./debug-download.sh
+./scripts/debug-download.sh
 
 # Check proxy settings
 cat config/.env
@@ -402,20 +421,17 @@ curl -I https://huggingface.co
 #### Performance Issues
 ```bash
 # Monitor system resources
-./monitor.sh --snapshot
-
-# Check disk space
-python3 main.py status
+./scripts/monitor.sh --snapshot
 
 # Review logs
-./log-manager.sh show
+./scripts/log-manager.sh show
 ```
 
 ### Getting Help
 
 1. **Built-in Diagnostics:**
    ```bash
-   python3 main.py health
+   make health
    ./test/quick-test.sh
    ```
 
@@ -445,14 +461,14 @@ We welcome contributions! Please see our contributing guidelines:
 # Clone and setup
 git clone <repository>
 cd ramalama-project
-./install.sh
+./scripts/install.sh
 
 # Run tests
 ./test/quick-test.sh
-python3 main.py health
+make health
 
 # Make changes and test
-./ramalama.sh rebuild
+./scripts/ramalama.sh rebuild
 ```
 
 ### Contribution Areas
@@ -515,8 +531,8 @@ RamaLama itself is distributed under the Apache 2.0 license.
 ### Reporting Issues
 
 When reporting issues, please include:
-- System information (`python3 main.py status`)
-- Error logs (`./log-manager.sh show`)
+- System information (`make health`)
+- Error logs (`./scripts/log-manager.sh show`)
 - Steps to reproduce
 - Expected vs actual behavior
 

@@ -20,7 +20,6 @@ __pycache__/
 venv/
 env/
 ENV/
-.env
 
 # IDE
 .vscode/
@@ -36,3 +35,5 @@ Thumbs.db
 # Временные файлы
 *.tmp
 *.temp
+.env
+config/.env
