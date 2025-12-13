@@ -1,83 +1,99 @@
-# Multi-stage build for security and optimization
+# syntax=docker/dockerfile:1.4
+
+# ============================================
+# BUILDER STAGE
+# ============================================
 FROM python:3.11-slim as builder
 
-# Install build dependencies in builder stage
-RUN apt-get update && apt-get install -y \
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     pkg-config \
+    git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Install uv (fast Python dependency resolver)
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:$PATH"
 
 # Create virtual environment
 RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH" \
+    VIRTUAL_ENV="/opt/venv"
 
-# Upgrade pip and install Python packages
-RUN pip install --no-cache-dir --upgrade pip wheel setuptools
-RUN pip install --no-cache-dir ramalama llama-cpp-python
+# Install Python packages with uv (much faster than pip)
+# uv can act as a drop-in replacement for pip
+RUN --mount=type=cache,target=/root/.cache/pip \
+    uv pip install --upgrade pip setuptools wheel && \
+    uv pip install --no-cache-dir \
+    llama-cpp-python==0.3.0 \
+    ramalama==0.1.2
 
-# Production stage
+# ============================================
+# PRODUCTION STAGE
+# ============================================
 FROM python:3.11-slim
 
-# Install runtime dependencies only
-RUN apt-get update && apt-get install -y \
+# Install only runtime dependencies (minimal footprint)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     vim \
     less \
     procps \
     wget \
+    libgomp1 \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Create working directories with proper permissions
-RUN mkdir -p /workspace/models /workspace/data /workspace/cache
+# Create non-root user BEFORE changing ownership
 RUN useradd -m -u 1000 ramalama || true
 
-WORKDIR /workspace
-
-# Copy llama-server script
-COPY llama-server.py /usr/local/bin/llama-server
-RUN chmod +x /usr/local/bin/llama-server
-
-# Copy entrypoint
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Create symlinks for compatibility
-RUN ln -sf /usr/local/bin/llama-server /usr/local/bin/llama-cpp-server
-RUN ln -sf /usr/local/bin/llama-server /usr/local/bin/llama-cli
-
-# Create configuration directory
-RUN mkdir -p /usr/local/share/ramalama
-
-# Create configuration file
-RUN cat > /usr/local/share/ramalama/ramalama.conf << 'EOF'
-[engine]
-type = "docker"
-
-[runtime]
-type = "llama.cpp"
-EOF
-
-# Set proper permissions
-RUN chown -R ramalama:ramalama /workspace
-
-# Environment variables
-ENV PYTHONUNBUFFERED=1 \
+# Copy virtual environment from builder (lightweight copy)
+COPY --from=builder --chown=ramalama:ramalama /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH" \
+    VIRTUAL_ENV="/opt/venv" \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PYTHONPATH=/workspace
 
-# Switch to non-root user
-USER ramalama
+# Create unified workspace hierarchy
+RUN mkdir -p /workspace/{models,logs,data,cache,config,tmp} && \
+    chown -R ramalama:ramalama /workspace && \
+    chmod -R 755 /workspace
+
+WORKDIR /workspace
+
+# Copy wrapper scripts
+COPY --chown=ramalama:ramalama llama.cpp /usr/local/bin/llama.cpp
+RUN chmod +x /usr/local/bin/llama.cpp
+
+# COPY --chown=ramalama:ramalama llama-server.py /usr/local/bin/llama-server.py
+# RUN chmod +x /usr/local/bin/llama-server.py
+
+# Copy entrypoint
+COPY --chown=ramalama:ramalama scripts/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Environment variables from docker-compose.yml will override these
+ENV RAMALAMA_MODELS_PATH=/workspace/models \
+    RAMALAMA_DATA_PATH=/workspace/data \
+    RAMALAMA_LOG_FILE=/workspace/logs/ramalama.log \
+    RAMALAMA_ENGINE=llama.cpp \
+    RAMALAMA_LOG_LEVEL=ERROR \
+    HF_HUB_DISABLE_PROGRESS_BARS=false \
+    HF_HUB_ENABLE_HF_TRANSFER=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
+# Switch to non-root user
+USER ramalama
+
+# Default entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["--help"]

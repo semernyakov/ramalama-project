@@ -79,14 +79,12 @@ rebuild:
 	$(COMPOSE) build --no-cache --progress=plain
 
 buildx:
-	@echo "$(GREEN)Building with buildx (parallel, cached)...$(NC)"
+	@echo "$(GREEN)Building with buildx...$(NC)"
 	docker buildx build \
 		--file Dockerfile \
 		--tag $(IMAGE_NAME):$(IMAGE_TAG) \
-		--cache-from=type=local \
-		--cache-to=type=local,dest=/tmp/.buildx-cache \
 		--load .
-	@echo "$(GREEN)✓ Image built with buildx cache$(NC)"
+	@echo "$(GREEN)✓ Image built with buildx$(NC)"
 
 # ============================================
 # RUN & SERVE TARGETS
