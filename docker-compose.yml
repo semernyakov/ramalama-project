@@ -51,8 +51,8 @@ services:
       # Data stays inside container
       # Cache stays inside container
       
-      # Optional: mount config as read-only for reference
-      - ./config:/workspace/config:ro
+      # Optional: mount config for access (read-write for entrypoint)
+      - ./config:/workspace/config:rw
     
     # Default waiting mode
     command: tail -f /dev/null
