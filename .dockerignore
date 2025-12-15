@@ -1,0 +1,53 @@
+# .dockerignore - ускоряет передачу контекста сборки
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*.so
+venv/
+env/
+
+# Docker files
+docker-compose*.yml
+compose.yml
+docker-bake.hcl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+logs/
+
+# Cache
+cache/
+.cache/
+
+# Data
+data/
+*.db
+
+# Models (огромные файлы, монтируются через volumes)
+models/
+*.gguf
+*.bin
+*.safetensors
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# Backups
+backups_*/
+*.bak
+
+# Documentation
+*.md
+!README.md

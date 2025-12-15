@@ -1,0 +1,7 @@
+docker logs --tail=200 llama-cpp
+docker inspect --format '{{json .State}}' llama-cpp
+
+docker compose --profile cpu up -d --force-recreate
+docker ps --filter name=llama-cpp --filter name=ramalama
+docker logs --tail=120 llama-cpp
+ls -lah ./models && find ./models -maxdepth 2 -type f -name '*.gguf' -o -name '*.bin' | head

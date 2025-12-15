@@ -35,5 +35,5 @@ Thumbs.db
 # Временные файлы
 *.tmp
 *.temp
-.env
-config/.env
+#.env
+#config/.env

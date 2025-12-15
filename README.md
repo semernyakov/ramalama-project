@@ -1,568 +1,373 @@
-<div align="center">
+# RamaLama + llama.cpp Microservices
 
-![RamaLama Logo](https://img.shields.io/badge/RamaLama-🚀-blue?style=for-the-badge)
-![Docker](https://img.shields.io/badge/Docker-✅-2496ED?style=for-the-badge&logo=docker)
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python)
-![Security](https://img.shields.io/badge/Security-A+-green?style=for-the-badge)
-![Testing](https://img.shields.io/badge/Testing-Comprehensive-brightgreen?style=for-the-badge)
-![License](https://img.shields.io/badge/License-Apache%202.0-red?style=for-the-badge)
+Production-ready микросервисная архитектура для LLM inference.
 
-# RamaLama Docker Project
+## Архитектура
 
-[![Docker Build Status](https://img.shields.io/docker/build-status/ramalama/latest)](https://hub.docker.com/r/ramalama)
-[![Docker Image Size](https://img.shields.io/docker/image-size/ramalama/latest)](https://hub.docker.com/r/ramalama)
-[![Docker Pulls](https://img.shields.io/docker/pulls/ramalama/latest)](https://hub.docker.com/r/ramalama)
-[![Code Quality](https://img.shields.io/badge/Code%20Quality-A+-brightgreen?style=flat-square)](#)
-[![CI/CD Ready](https://img.shields.io/badge/CI%2FCD-Ready-success?style=flat-square)](#)
-[![Documentation](https://img.shields.io/badge/Documentation-Comprehensive-blue?style=flat-square)](#)
+```
+┌──────────────────────────────────────────────────────┐
+│  Host Machine                                        │
+│  ┌────────────────────────────────────────────────┐  │
+│  │  Docker Network: ramalama-net (172.20.0.0/16)  │  │
+│  │                                                │  │
+│  │  ┌──────────────────┐      ┌─────────────────┐ │  │
+│  │  │   ramalama       │──────│  llama-cpp      │ │  │
+│  │  │   (Python CLI)   │ HTTP │  (Inference)    │ │  │
+│  │  │                  │ 8080 │                 │ │  │
+│  │  │ - Orchestrator   │      │  - CPU/CUDA     │ │  │
+│  │  │ - Model mgmt     │      │  - GGUF models  │ │  │
+│  │  │ - HF integration │      │  - OpenAI API   │ │  │
+│  │  └──────────────────┘      └─────────────────┘ │  │
+│  │           │                         │          │  │
+│  │           └────── Shared volumes ───┘          │  │
+│  │                    /models                     │  │
+│  └────────────────────────────────────────────────┘  │
+│                                                      │
+│  Exposed: localhost:8080 → llama-cpp:8080            │
+└──────────────────────────────────────────────────────┘
+```
 
-**🚀 Production-ready containerized environment for running AI language models with comprehensive management, monitoring, and security features.**
+## Компоненты
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Contributing](#-contributing) • [Support](#-support)
+### 1. ramalama (Orchestrator)
+- **Base**: `python:3.11-slim-bookworm` (~250MB)
+- **Роль**: CLI для управления, загрузки моделей, HuggingFace интеграция
+- **Подключение**: HTTP client к llama-cpp
+- **Build**: Собирается локально с uv (10-20s cached)
 
-</div>
+### 2. llama.cpp (Inference Server)
+- **Base**: `ghcr.io/ggml-org/llama.cpp:full` (официальный)
+- **Роль**: CPU inference, OpenAI-compatible API
+- **Port**: 8080 (внутренний + внешний)
+- **Build**: Pull готового образа
 
----
+### 3. llama.cpp-cuda (GPU Inference)
+- **Base**: `ghcr.io/ggml-org/llama.cpp:full-cuda` (официальный)
+- **Роль**: CUDA inference, все слои на GPU
+- **Port**: 8080 (внутренний + внешний)
+- **Build**: Pull готового образа
 
-## 📖 Overview
+## Quick Start
 
-RamaLama Docker Project provides a **secure, production-ready containerized environment** for running AI language models. Built with enterprise-grade security practices, comprehensive monitoring, and extensive automation features.
-
-### 🎯 Key Capabilities
-
-- ✅ **Fast Build System** - uv + docker buildx for 3-5x faster builds (3-5 min first time, ~30 sec subsequent)
-- ✅ **Variant B Architecture** - Only models on host, everything else in container for simplicity
-- ✅ **Makefile as Primary CLI** - Clean, modern command interface replacing shell scripts
-- ✅ **Complete .env Integration** - All configuration in config/.env with automatic loading
-- ✅ **Secure Multi-stage Docker Builds** - Production-grade security with non-root execution
-- ✅ **Proxy Support & Configuration** - HTTP/HTTPS proxy support with automatic detection
-- ✅ **Advanced Monitoring & Logging** - Real-time monitoring, centralized logging, and log rotation
-- ✅ **Automated Backup System** - Model backup and restoration capabilities
-- ✅ **Health Checks & Diagnostics** - Built-in health monitoring and automated diagnostics
-- ✅ **Resource Management** - CPU/memory limits and proper resource allocation
-- ✅ **Testing Infrastructure** - Comprehensive test suite with multiple validation layers
-
----
-
-## 🚀 Quick Start
-
-### Option 1: Automated Installation (Recommended)
-
+### 1. Setup
 ```bash
-# One-command setup with all dependencies and configuration
-chmod +x scripts/install.sh
-./scripts/install.sh
+# Создать структуру
+mkdir -p ramalama models cache logs data config
 
-# Installation automatically:
-# ✓ Checks system requirements
-# ✓ Configures proxy settings (if needed)
-# ✓ Sets up environment configuration
-# ✓ Builds Docker image
-# ✓ Runs comprehensive tests
-```
-
-### Option 2: Manual Setup
-
-```bash
-# 1. Make scripts executable
-chmod +x scripts/*.sh
-
-# 2. Build Docker image
-./scripts/ramalama.sh build
-
-# 3. Run tests
-./test/quick-test.sh
-
-# 4. Check system status
-python3 main.py status
-python3 main.py health
-```
-
-### Option 3: Fast Build with Make (Recommended)
-
-```bash
-# ⚡ Fast build with uv + buildx (first time: ~3-5 min, subsequent: ~30 sec)
-make buildx
-
-# Start container
-make up
-
-# Download and serve model
-make pull MODEL=tinyllama
-make serve MODEL=tinyllama PORT=8080
-
-# Show all available commands
-make help
-```
-
----
-
-## 📋 System Requirements
-
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| **OS** | Linux (Ubuntu 20.04+) | Linux (Ubuntu 22.04+) |
-| **Docker** | 20.10+ | 24.0+ |
-| **Docker Compose** | 2.0+ | 2.20+ |
-| **Python** | 3.8+ | 3.11+ |
-| **Memory** | 4GB RAM | 8GB+ RAM |
-| **Storage** | 10GB free | 50GB+ free |
-
----
-
-## 🏗️ Project Structure
-
-```
-ramalama-project/
-├── 🐳 Core Configuration
-│   ├── Dockerfile                 # Multi-stage secure Docker build
-│   ├── docker-compose.yml         # Service orchestration with resource limits
-│   └── entrypoint.sh              # Enhanced startup with diagnostics
-│
-├── 🐍 Management & Automation
-│   ├── main.py                    # Python CLI management interface
-│   ├── ramalama.sh                # Main script wrapper
-│   ├── install.sh                 # Automated installation
-│   └── Makefile                   # Convenient make commands
-│
-├── 🔧 Utilities
-│   ├── monitor.sh                 # Real-time system monitoring
-│   ├── backup.sh                  # Automated backup system
-│   ├── examples.sh                # Usage examples
-│   ├── log-manager.sh             # Centralized logging management
-│   └── setup-logrotate.sh         # Automatic log rotation setup
-│
-├── 🧪 Testing Infrastructure
-│   └── test/
-│       ├── quick-test.sh          # Comprehensive system validation
-│       ├── test-cache.sh          # Cache system testing
-│       ├── README.md              # Testing documentation
-│       └── __init__.py            # Python package marker
-│
-├── 📚 Documentation
-│   ├── LOGROTATION_GUIDE.md       # Complete log rotation guide
-│   ├── TROUBLESHOOTING.md         # Problem-solving guide
-│   ├── RAMA_LAMA_CODE_AUDIT_REPORT.md  # Security audit results
-│   └── BUILD_GUIDE.md             # Fast build guide with uv + buildx
-│
-├── ⚙️ Configuration
-│   ├── config/
-│   │   ├── .env                   # Environment configuration (auto-loaded)
-│   │   └── logrotate.conf         # Log rotation configuration
-│   ├── models/                    # AI model storage (mounted from host)
-│   ├── logs/                      # Application logs (container-only)
-│   ├── data/                      # User data (container-only)
-│   ├── cache/                     # Cache directory (container-only)
-│   └── backups/                   # Backup storage (auto-created)
-│
-├── 🚀 Fast Build System
-│   ├── Dockerfile                 # Multi-stage with uv (fast Python deps)
-│   ├── docker-bake.hcl            # Parallel buildx configuration
-│   ├── docker-compose.yml         # Variant B (models only on host)
-│   ├── Makefile                   # Primary CLI (replaces shell scripts)
-│   └── entrypoint.sh              # Enhanced startup with diagnostics
-│
-└── 📄 Legacy Support
-    └── .gitignore                 # Git ignore rules
-```
-
----
-
-## 🎯 Features
-
-### 🔒 Security & Best Practices
-
-- **Multi-stage Docker builds** for minimal attack surface
-- **Non-root container execution** with proper user permissions
-- **Secure package management** with virtual environments
-- **Resource limits and isolation** with proper container security
-- **Comprehensive security audit** (Grade A+) passed
-
-### 🛠️ Management & Automation
-
-- **Python CLI Interface** (`main.py`) with comprehensive commands:
-  - `python3 main.py status` - System status overview
-  - `python3 main.py health` - Health check validation
-  - `python3 main.py list-models` - Model inventory
-  - `python3 main.py run "<command>"` - Execute commands in container
-
-- **Make Commands** for quick operations:
-  - `make setup-dirs` - Verify and create directory structure
-  - `make build` - Build Docker image
-  - `make test` - Run comprehensive tests
-  - `make clean` - Clean containers and images
-  - `make monitor` - Start system monitoring
-
-### 📊 Monitoring & Logging
-
-- **Real-time monitoring** with `monitor.sh`
-- **Centralized logging** with automatic log rotation
-- **Health check endpoints** for container monitoring
-- **Disk space monitoring** and alerts
-- **Comprehensive system diagnostics**
-
-### 🔄 Proxy Support
-
-- **HTTP/HTTPS proxy support** with automatic detection
-- **Proxy configuration** through environment variables
-- **No-proxy exceptions** for local services
-- **Graceful fallback** when proxy is unavailable
-
-### 💾 Storage & Backup
-
-- **Persistent model storage** with Docker volume mapping
-- **Automated backup system** with compression
-- **Cache optimization** for faster model loading
-- **Flexible storage configuration**
-
-### 🧪 Testing & Quality Assurance
-
-- **Comprehensive test suite** in `/test/` directory
-- **Health check validation** for all system components
-- **Cache testing** and performance validation
-- **Integration testing** with Docker containers
-- **CI/CD ready** with standardized testing procedures
-
----
-
-## 📖 Documentation
-
-### Core Documentation
-
-| Document | Description |
-|----------|-------------|
-| **[README.md](README.md)** | This comprehensive guide |
-| **[BUILD_GUIDE.md](docs/BUILD_GUIDE.md)** | Fast build system with uv + buildx |
-| **[LOGROTATION_GUIDE.md](docs/LOGROTATION_GUIDE.md)** | Complete log rotation setup and management |
-| **[TROUBLESHOOTING.md](test/TROUBLESHOOTING.md)** | Detailed problem-solving guide |
-| **[test/README.md](test/README.md)** | Testing infrastructure and procedures |
-
-### Built-in Help
-
-```bash
-# Make commands (primary interface)
-make help
-
-# Fast build commands
-make buildx          # First build: ~3-5 min, subsequent: ~30 sec
-make serve MODEL=tinyllama  # Serve model on port 8080
-
-# Legacy scripts (still supported)
-./scripts/ramalama.sh help
-./scripts/monitor.sh --help
-./scripts/backup.sh --help
-
-# Configuration
-make config          # Show current configuration from config/.env
-make test            # Run sanity checks
-```
-
----
-
-## 🚀 Usage Examples
-
-### Basic Model Operations
-
-```bash
-# Download a model
-./scripts/ramalama.sh pull tinyllama
-
-# List available models
-./scripts/ramalama.sh list
-
-# Run model interactively
-./scripts/ramalama.sh run tinyllama
-
-# Run as API server
-./scripts/ramalama.sh serve tinyllama --port 8080
-```
-
-### System Management
-
-```bash
-# System status and health
-python3 main.py status
-python3 main.py health
-
-# Real-time monitoring
-./scripts/monitor.sh
-./scripts/monitor.sh --json
-
-# Create backup
-./scripts/backup.sh create
-./scripts/backup.sh list
-./scripts/backup.sh restore backups/ramalama_backup_*.tar.gz
-```
-
-### Advanced Configuration
-
-```bash
-# Run custom commands in container
-python3 main.py run "ramalama info"
-python3 main.py run "ls -la /workspace/models"
-
-# Container shell access
-./scripts/ramalama.sh shell
-
-# Direct ramalama access
-./scripts/ramalama.sh -- <any-ramalama-command>
-```
-
----
-
-## ⚙️ Configuration
-
-### Environment Configuration
-
-All settings are managed through the `.env` file in the `config/` directory:
-
-```bash
-# Copy and configure
+# Скопировать конфигурацию
 cp config/env.example config/.env
+
+# Отредактировать (опционально)
 nano config/.env
 ```
 
-### Key Configuration Options
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `HTTP_PROXY` | HTTP proxy server | Optional |
-| `HTTPS_PROXY` | HTTPS proxy server | Optional |
-| `RAMALAMA_LOG_LEVEL` | Logging level | ERROR |
-| `DEFAULT_MODEL` | Default model to use | tinyllama |
-| `DEFAULT_SERVE_PORT` | Server port | 8080 |
-
-### Docker Resource Limits
-
-Edit `docker-compose.yml` to adjust resource allocation:
-
-```yaml
-deploy:
-  resources:
-    limits:
-      memory: 4G
-      cpus: '2.0'
-    reservations:
-      memory: 1G
-      cpus: '0.5'
-```
-
----
-
-## 🧪 Testing
-
-### Running Tests
-
+### 2. Build
 ```bash
-# Quick system validation
-./test/quick-test.sh
+# Собрать ramalama + pull llama.cpp
+make build
+make pull-llama
 
-# Cache system testing
-./test/test-cache.sh
-
-# Health checks
-python3 main.py health
-
-# Comprehensive status
-python3 main.py status
+# Или быстрее (если уже собирали)
+make fast
 ```
 
-### Test Categories
+### 3. Run
 
-1. **System Health Tests** - Docker, directories, permissions
-2. **Container Tests** - Startup, health checks, networking
-3. **Model Tests** - File detection, storage validation
-4. **Integration Tests** - End-to-end workflows
-
-### CI/CD Integration
-
+**CPU mode:**
 ```bash
-#!/bin/bash
-# CI pipeline test runner
-set -euo pipefail
-
-echo "Running RamaLama test suite..."
-python3 main.py health || exit 1
-./test/quick-test.sh || exit 1
-echo "All tests passed!"
+make up-cpu
+# Запускает: ramalama + llama-cpp
 ```
 
----
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### Docker Issues
+**CUDA mode (с GPU):**
 ```bash
-# Check Docker status
-python3 main.py health
-
-# Rebuild image
-./scripts/ramalama.sh rebuild
-
-# Clean everything
-./scripts/ramalama.sh clean
-make clean
+make up-cuda
+# Запускает: ramalama + llama-cpp-cuda
 ```
 
-#### Model Download Issues
+### 4. Verify
 ```bash
-# Debug download problems
-./scripts/debug-download.sh
+make verify
 
-# Check proxy settings
-cat config/.env
-
-# Test connectivity
-curl -I https://huggingface.co
+# Output:
+# ════════════════════════════════════════
+# Verifying services...
+# 
+# RamaLama image:
+#   Size: 280MB
+# 
+# RamaLama health:
+#   ✓ ramalama 0.x.x
+# 
+# llama.cpp health:
+#   ✓ {"status":"ok"}
+# 
+# Network connectivity:
+#   ✓ ramalama → llama-cpp OK
+# ════════════════════════════════════════
 ```
 
-#### Performance Issues
+## Usage
+
+### Загрузка модели
 ```bash
-# Monitor system resources
-./scripts/monitor.sh --snapshot
+# Через ramalama
+make shell-rama
+ramalama pull tinyllama
 
-# Review logs
-./scripts/log-manager.sh show
+# Или напрямую скачать GGUF
+wget -P ./models https://huggingface.co/.../model.gguf
 ```
 
-### Getting Help
-
-1. **Built-in Diagnostics:**
-   ```bash
-   make health
-   ./test/quick-test.sh
-   ```
-
-2. **Detailed Troubleshooting:**
-   - Read [TROUBLESHOOTING.md](test/TROUBLESHOOTING.md)
-   - Check log files in `logs/` directory
-   - Run diagnostic scripts
-
-3. **Log Analysis:**
-   ```bash
-   # View recent logs
-   ./log-manager.sh tail
-   
-   # Search for errors
-   grep -r "ERROR" logs/
-   ```
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our contributing guidelines:
-
-### Development Setup
-
+### Запуск inference
 ```bash
-# Clone and setup
-git clone <repository>
-cd ramalama-project
-./scripts/install.sh
+# 1. Убедитесь, что модель загружена
+ls ./models/
 
-# Run tests
-./test/quick-test.sh
-make health
+# 2. Обновите config/.env
+nano config/.env
+# LLAMA_MODEL=/models/your-model.gguf
 
-# Make changes and test
-./scripts/ramalama.sh rebuild
+# 3. Перезапустите
+make restart
+
+# 4. Проверьте
+curl http://localhost:8080/v1/models
 ```
 
-### Contribution Areas
+### Работа с API
+```bash
+# OpenAI-compatible endpoint
+curl http://localhost:8080/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Once upon a time",
+    "max_tokens": 100
+  }'
 
-- 🐛 **Bug fixes** and improvements
-- 📚 **Documentation** enhancements
-- 🧪 **Testing** infrastructure
-- 🔧 **Automation** and tooling
-- 🚀 **Performance** optimizations
+# Chat completion
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "Hello!"}
+    ]
+  }'
+```
 
-### Code Quality Standards
+### Shell access
+```bash
+# RamaLama shell
+make shell-rama
 
-- **Security First** - All changes must maintain security standards
-- **Testing Required** - Include tests for new functionality
-- **Documentation** - Update docs for any user-facing changes
-- **Backward Compatibility** - Maintain compatibility with existing setups
+# llama.cpp shell
+make shell-llama
+```
 
----
+### Logs
+```bash
+# Все сервисы
+make logs
 
-## 📊 Project Statistics
+# Только ramalama
+make logs-rama
 
-| Metric | Status |
-|--------|--------|
-| **Security Grade** | A+ (Comprehensive security audit passed) |
-| **Code Quality** | A (Clean architecture, comprehensive testing) |
-| **Test Coverage** | 100% (All critical paths tested) |
-| **Documentation** | Comprehensive (Multiple guides and examples) |
-| **Docker Best Practices** | ✅ Multi-stage builds, security, optimization |
-| **Error Handling** | ✅ Comprehensive with proper logging |
-| **Resource Management** | ✅ Proper limits and monitoring |
+# Только llama.cpp
+make logs-llama
+```
 
----
+## Configuration
 
-## 📄 License
+### Profiles
 
-This project uses the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
+**CPU (default):**
+- ramalama + llama-cpp
+- 4 CPU, 8GB RAM
+- Для разработки, тестирования
 
-RamaLama itself is distributed under the Apache 2.0 license.
+**CUDA (GPU):**
+- ramalama + llama-cpp-cuda
+- 8 CPU, 16GB RAM
+- Все слои на GPU
+- Требует nvidia-docker
 
----
+### Environment Variables
 
-## 🙏 Acknowledgments
+**config/.env:**
+```bash
+# llama.cpp настройки
+LLAMA_MODEL=/models/model.gguf
+LLAMA_CTX_SIZE=2048
+LLAMA_THREADS=4
+LLAMA_GPU_LAYERS=99  # CUDA mode
 
-- **RamaLama Team** - For the excellent AI model runner
-- **Docker Community** - For containerization best practices
-- **Python Community** - For robust development tools
-- **Security Auditors** - For comprehensive security review
+# Resources
+CPU_LIMIT=4
+MEMORY_LIMIT=8g
+```
 
----
+### Networking
 
-## 📞 Support
+- **Internal**: `ramalama-net` (172.20.0.0/16)
+- **External**: `localhost:8080` → llama-cpp
+- **Service discovery**: `http://llama-cpp:8080` внутри сети
 
-### Getting Help
+## Commands
 
-1. **Check Documentation** - Start with our comprehensive guides
-2. **Run Diagnostics** - Use built-in health checks and tests
-3. **Search Issues** - Look for similar problems in documentation
-4. **Community Support** - Engage with the community for help
+### Build
+```bash
+make build          # Full build (10-20s cached)
+make fast           # Ultra-fast (5-10s)
+make rebuild        # Clean rebuild
+make pull-llama     # Pull llama.cpp images
+```
 
-### Reporting Issues
+### Run
+```bash
+make up-cpu         # Start CPU stack
+make up-cuda        # Start CUDA stack
+make down           # Stop all
+make restart        # Restart CPU
+make restart-cuda   # Restart CUDA
+```
 
-When reporting issues, please include:
-- System information (`make health`)
-- Error logs (`./scripts/log-manager.sh show`)
-- Steps to reproduce
-- Expected vs actual behavior
+### Shell
+```bash
+make shell-rama     # RamaLama bash
+make shell-llama    # llama.cpp bash
+```
 
----
+### Logs
+```bash
+make logs           # All services
+make logs-rama      # RamaLama only
+make logs-llama     # llama.cpp only
+```
 
-<div align="center">
+### Maintenance
+```bash
+make verify         # Health check
+make prune          # Clean cache
+make clean          # Full cleanup
+```
 
-[![Made with ❤️](https://img.shields.io/badge/Made%20with-❤️-red?style=for-the-badge)](#)
-[![Production Ready](https://img.shields.io/badge/Production-Ready-success?style=for-the-badge)](#)
-[![Security Audited](https://img.shields.io/badge/Security-Audited-green?style=for-the-badge)](#)
+## Performance
 
-**RamaLama Docker Project** - *Enterprise-grade AI model deployment made simple*
+### Build Times
+```
+First build:        2-3 min (ramalama)
+Cached build:       10-20 sec
+Fast build:         5-10 sec
+Pull llama.cpp:     30-60 sec (depends on network)
+```
 
-[Website](#) • [Documentation](#) • [Issues](#) • [Discussions](#)
+### Image Sizes
+```
+ramalama:           ~250-280MB
+llama.cpp:full:     ~400MB (official)
+llama.cpp:full-cuda: ~2GB (official)
+```
 
-</div>
+### Runtime
+```
+Startup (CPU):      10-20 sec
+Startup (CUDA):     15-30 sec
+Inference (CPU):    Depends on model
+Inference (CUDA):   5-10x faster than CPU
+```
 
----
+## Troubleshooting
 
-## 🌐 Translations / Переводы
+### llama.cpp not responding
+```bash
+# Check logs
+make logs-llama
 
-| Language | Documentation | Translation Status |
-|----------|---------------|-------------------|
-| 🇺🇸 English | [README.md](README.md) | ✅ Original |
-| 🇷🇺 Russian | [README.ru.md](logs/README.ru.md) | ✅ Complete |
-| 🇺🇸 English | [Log Rotation Guide](docs/LOGROTATION_GUIDE.en.md) | ✅ Complete |
-| 🇷🇺 Russian | [Руководство по ротации логов](docs/LOGROTATION_GUIDE.md) | ✅ Original |
-| 🇺🇸 English | [Troubleshooting Guide](docs/TROUBLESHOOTING.en.md) | ✅ Complete |
-| 🇷🇺 Russian | [Руководство по устранению неполадок](test/TROUBLESHOOTING.md) | ✅ Original |
-| 🇺🇸 English | [Code Audit Report](docs/RAMA_LAMA_CODE_AUDIT_REPORT.md) | ✅ Original |
-| 🇷🇺 Russian | [Отчет аудита кода](docs/RAMA_LAMA_CODE_AUDIT_REPORT.ru.md) | ✅ Complete |
-| 🇺🇸 English | [Testing Documentation](test/README.md) | ✅ Original |
-| 🇷🇺 Russian | [Документация по тестированию](test/README.ru.md) | ✅ Complete |
+# Check health
+curl http://localhost:8080/health
+
+# Restart
+make restart
+```
+
+### ramalama can't connect
+```bash
+# Verify network
+make verify
+
+# Check connectivity from ramalama
+make shell-rama
+curl http://llama-cpp:8080/health
+```
+
+### GPU not detected (CUDA)
+```bash
+# Check nvidia-docker
+docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
+
+# Check compose
+make shell-llama
+nvidia-smi
+```
+
+### Model not loading
+```bash
+# Check model path
+ls -lh ./models/
+
+# Check llama.cpp logs
+make logs-llama
+
+# Verify config
+cat config/.env | grep LLAMA_MODEL
+```
+
+## Production Considerations
+
+### Security
+- ✅ Non-root users (1000:100)
+- ✅ Read-only config mount
+- ✅ Isolated network
+- ✅ No exposed credentials
+
+### Scaling
+- Horizontal: Deploy multiple llama-cpp instances
+- Vertical: Increase CPU_LIMIT, MEMORY_LIMIT
+- Load balancing: nginx/traefik in front
+
+### Monitoring
+- Health checks: `/health` endpoint
+- Logs: Centralized logging (ELK, Loki)
+- Metrics: Prometheus exporter (custom)
+
+### Backup
+- Models: `./models/` directory
+- Cache: `./cache/` (regenerable)
+- Config: `./config/.env`
+
+## Architecture Benefits
+
+✅ **Separation of concerns**
+- ramalama: orchestration, model management
+- llama.cpp: pure inference
+
+✅ **Independent scaling**
+- Scale llama.cpp instances independently
+- Different resource profiles (CPU/GPU)
+
+✅ **Easy upgrades**
+- Update ramalama: rebuild only ramalama
+- Update llama.cpp: pull new official image
+
+✅ **Flexibility**
+- Swap backends (vLLM, TGI, etc.)
+- Different inference servers per model
+
+✅ **Development-friendly**
+- Fast rebuilds (ramalama only)
+- Isolated testing
+- Easy debugging
+
+## License
+
+MIT
